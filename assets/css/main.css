@@ -11,3 +11,8 @@ body,
 body {
     background: #212534;
 }
+
+*{
+    outline: none;
+    box-shadow: none;
+}

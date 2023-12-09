@@ -5,6 +5,13 @@ export default defineNuxtConfig({
   plugins: [
     {src: '~/plugins/firebase', mode: 'client'}
   ],
+  app: {
+    head: {
+      meta: [
+        { name: 'viewport', content: 'width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover' },
+      ],
+    }
+  },
   modules: [
     '@pinia/nuxt',
   ],
