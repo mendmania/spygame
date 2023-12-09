@@ -14,14 +14,15 @@ import { usePlayerStore } from "~/stores/playerData";
 
 export default defineNuxtPlugin((nuxtApp) => {
   if (process.client) {
+    const config = useRuntimeConfig();
     const firebaseConfig = {
-      apiKey: "AIzaSyAliqkr6IvvEwYpLhhvs3CXPX5xhOtE56A",
-      authDomain: "spygame-c7c0c.firebaseapp.com",
-      projectId: "spygame-c7c0c",
-      storageBucket: "spygame-c7c0c.appspot.com",
-      messagingSenderId: "314574851849",
-      appId: "1:314574851849:web:0ecf8eff3201c04cbb8dd8",
-      measurementId: "G-97ZE2FX3BX"
+      apiKey: config.public.apiKey,
+      authDomain:config.public.authDomain,
+      projectId: config.public.projectId,
+      storageBucket: config.public.storageBucket,
+      messagingSenderId: config.public.messagingSenderId,
+      appId:config.public.appId,
+      measurementId: config.public.measurementId
     };
 
 

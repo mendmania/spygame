@@ -18,10 +18,10 @@ const props = defineProps({
   <div class="game-card">
     <div class="card flex flex-col">
       <div class="text-sm">
-        You are in: <span class="text-base">{{ location }}</span>
+        You are in: <span class="text-xl font-bold">{{ location }}</span>
       </div>
       <div class="text-sm">
-        Role: <span class="text-base">{{ role }}</span>
+        Role: <span class="text-xl font-bold">{{ role }}</span>
       </div>
     </div>
   </div>
@@ -43,7 +43,6 @@ const props = defineProps({
   font-size: 1.5em;
   color: #58c7fa00;
   cursor: pointer;
-  font-family: cursive;
 }
 
 .card:hover {
