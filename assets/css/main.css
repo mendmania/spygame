@@ -15,4 +15,5 @@ body {
 *{
     outline: none;
     box-shadow: none;
+    user-select: none;
 }

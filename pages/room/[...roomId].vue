@@ -42,6 +42,8 @@ const leaveGame = () => {
 
 <template>
   <div class="w-full flex flex-col items-center justify-center">
+    <GameInfoCard :text="gameData?.game.roomId" />
+
     <GameCard :location="user.location" :role="user.role" />
     <div class="flex py-10">
       <div v-if="user?.isAdmin">
@@ -62,9 +64,7 @@ const leaveGame = () => {
       </div>
 
       <!-- USER: {{ user }}
-    <pre>
-    {{ gameData }}
-  </pre
+
     > -->
       <div>
         <button
@@ -83,6 +83,8 @@ const leaveGame = () => {
         </button>
       </div>
     </div>
+
+    <GamePlayersList :players="gameData?.game?.players" />
   </div>
 </template>
 

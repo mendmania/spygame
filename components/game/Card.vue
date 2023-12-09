@@ -1,5 +1,6 @@
 
 <script setup>
+import { ref } from "vue";
 const props = defineProps({
   location: {
     type: String,
@@ -12,11 +13,20 @@ const props = defineProps({
     default: "Spy",
   },
 });
+
+const showCardData = ref(false);
+
+const onCardClick = () => {
+  showCardData.value = !showCardData.value;
+};
 </script>
 
 <template>
-  <div class="game-card">
-    <div class="card flex flex-col">
+  <div class="game-card" @click="onCardClick">
+    <div
+      class="card flex flex-col"
+      :class="showCardData ? 'show-card-data' : ''"
+    >
       <div class="text-sm">
         You are in: <span class="text-xl font-bold">{{ location }}</span>
       </div>
@@ -43,16 +53,30 @@ const props = defineProps({
   font-size: 1.5em;
   color: #58c7fa00;
   cursor: pointer;
+  outline: none;
 }
 
-.card:hover {
-  color: #58c7fa;
-  transition: color 1s;
-}
-.card:hover:before,
-.card:hover:after {
-  animation: none;
-  opacity: 0;
+// .card:hover {
+//   color: #58c7fa;
+//   transition: color 1s;
+// }
+// .card:hover:before,
+// .card:hover:after {
+//   animation: none;
+//   opacity: 0;
+// }
+
+.card {
+  &.show-card-data {
+    color: #58c7fa;
+    transition: color 1s;
+
+    &::before,
+    &::after {
+      animation: none;
+      opacity: 0;
+    }
+  }
 }
 
 .card::before {
