@@ -49,7 +49,6 @@ export default defineNuxtPlugin((nuxtApp) => {
 
       const roomExists = allRooms[roomId]
       const { players } = roomExists.game
-      console.log(players)
       if (players.findIndex(v => v.username === userData.username) === -1) {
         players.push(userData)
 

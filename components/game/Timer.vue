@@ -16,15 +16,12 @@ const gameTimeRemaning = ref(null);
 const timestampNow = new Date().getTime();
 
 const gameTimeTimestamp = props.timestamp - timestampNow;
-console.log(timestampNow);
 
 if (gameTimeTimestamp < 0) {
   timerFinished.value = true;
 } else {
-  console.log(gameTimeTimestamp);
   gameTimeRemaning.value = Math.floor(gameTimeTimestamp / 1000);
 }
-console.log(gameTimeRemaning.value);
 
 const formattedTime = computed(() => {
   const minutes = Math.floor(gameTimeRemaning.value / 60);
@@ -39,7 +36,6 @@ const totalSeconds = computed(() => seconds.value);
 
 const startTimer = () => {
   if (timerRunning.value) {
-    // Timer is already running, do nothing
     return;
   }
 
@@ -49,7 +45,7 @@ const startTimer = () => {
     if (gameTimeRemaning.value <= 0) {
       clearInterval(interval);
       timerRunning.value = false;
-      alert("Time's up!");
+      console.log("Time's up!");
       gameTimeRemaning.value = 0; // Reset seconds
     } else {
       gameTimeRemaning.value--;

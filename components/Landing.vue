@@ -24,7 +24,6 @@ const prepareToCreateGameRoom = () => {
 
   gameData.fromData(roomId);
   gameData.addPlayer({ roomId, username: user.value.username });
-  console.log(gameData);
   return { gameData, roomId };
 };
 

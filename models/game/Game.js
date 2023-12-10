@@ -26,13 +26,6 @@ class Game {
     startGame(gameTime = 8) {
         this.isActive = true
 
-        // const startDate = new Date()
-        // const startTime = startDate.getTime()
-        // let startTimeInMinutes = (Math.floor(startTime) / 60000)
-        // console.log(startTimeInMinutes)
-        // startTimeInMinutes += gameTime
-
-        // this.startTime = startTimeInMinutes
     }
 }
 
