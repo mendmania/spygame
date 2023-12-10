@@ -17,11 +17,11 @@ export default defineNuxtPlugin((nuxtApp) => {
     const config = useRuntimeConfig();
     const firebaseConfig = {
       apiKey: config.public.apiKey,
-      authDomain:config.public.authDomain,
+      authDomain: config.public.authDomain,
       projectId: config.public.projectId,
       storageBucket: config.public.storageBucket,
       messagingSenderId: config.public.messagingSenderId,
-      appId:config.public.appId,
+      appId: config.public.appId,
       measurementId: config.public.measurementId
     };
 
@@ -49,7 +49,6 @@ export default defineNuxtPlugin((nuxtApp) => {
 
       const roomExists = allRooms[roomId]
       const { players } = roomExists.game
-      console.log(players)
       if (players.findIndex(v => v.username === userData.username) === -1) {
         players.push(userData)
 
@@ -119,7 +118,7 @@ export default defineNuxtPlugin((nuxtApp) => {
       });
     }
 
-    const startStopGameById = async (roomId, activate = true) => {
+    const startStopGameById = async (roomId, activate = true, gameTime = 8) => {
       const allRooms = await getRooms()
 
       const roomExists = allRooms[roomId]
@@ -128,7 +127,13 @@ export default defineNuxtPlugin((nuxtApp) => {
 
       roomExists.game.isActive = activate
 
+      if (!activate) {
+        roomExists.game.startTime = false
+      }
+
       if (activate) {
+
+        roomExists.game.startTime = startGameTime(gameTime)
         const playerStore = usePlayerStore();
 
         console.log(roomExists.game.players)
@@ -169,6 +174,16 @@ export default defineNuxtPlugin((nuxtApp) => {
       }
     }
 
+    const startGameTime = (data = 8) => {
+      const startDate = new Date()
+      const time = startDate.getTime()
+      let timeInSeconds = (time / 60000)
+      timeInSeconds += data
+      timeInSeconds = timeInSeconds * 60000
+
+      return Math.floor(timeInSeconds)
+    }
+
     const endGameById = async (roomId) => {
       const allRooms = await getRooms()
       const roomExists = allRooms[roomId]
@@ -193,7 +208,7 @@ export default defineNuxtPlugin((nuxtApp) => {
       const roomExists = allRooms[roomId]
 
 
-      roomExists.game.players = roomExists.game.players.filter(user=> user.username !== userId)
+      roomExists.game.players = roomExists.game.players.filter(user => user.username !== userId)
 
       console.log(roomExists)
       if (!!roomExists) {

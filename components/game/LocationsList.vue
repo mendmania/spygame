@@ -1,19 +1,23 @@
 <script setup>
+import { SPY_LOCATIONS } from "~/constants/SPY_LOCATIONS";
 import { ref } from "vue";
+
 const props = defineProps({
   players: {
     type: Array,
     required: false,
     default: [],
   },
-  showSpy: {
-    type: Boolean,
-    required: false,
-    default: false,
-  },
 });
 
-const isSpy = ref(props.showSpy);
+const openedLocation = ref(null);
+const toggleLocationDetails = (data) => {
+  if (openedLocation.value === data) {
+    openedLocation.value = null;
+  } else {
+    openedLocation.value = data;
+  }
+};
 </script>
 
 <template>
@@ -25,24 +29,17 @@ const isSpy = ref(props.showSpy);
         <h5
           class="text-xl font-bold leading-none text-gray-900 dark:text-white"
         >
-          Players
+          Locations
         </h5>
       </div>
       <div class="flow-root">
         <ul role="list" class="divide-y divide-gray-200 dark:divide-gray-700">
           <li
             class="py-3 sm:py-4"
-            v-for="(player, index) in players"
+            v-for="(location, index) in SPY_LOCATIONS"
             :key="index"
           >
-            <div class="flex items-center">
-              <!-- <div class="flex-shrink-0">
-              <img
-                class="w-8 h-8 rounded-full"
-                src="/docs/images/people/profile-picture-1.jpg"
-                alt="Neil image"
-              />
-            </div> -->
+            <div class="flex items-start" @click="toggleLocationDetails(index)">
               <div class="min-w-0 ms-4">
                 <p
                   class="text-sm font-medium text-gray-900 truncate dark:text-white"
@@ -50,30 +47,26 @@ const isSpy = ref(props.showSpy);
                   {{ index + 1 }}.
                 </p>
               </div>
-              <div
-                class="flex-1 min-w-0 ms-4 flex justify-between items-center"
-              >
+              <div class="flex-1 min-w-0 ms-4 cursor-pointer">
                 <p
                   class="text-sm font-medium text-gray-900 truncate dark:text-white"
-                  :class="player.isSpy && showSpy ? '!text-red-500' : ''"
                 >
-                  {{ player.username }}
+                  {{ location.location }}
                 </p>
-                <p
-                  class="text-red-500 text-xs text-bold mr-3"
-                  v-if="player.isSpy && showSpy"
+                <div
+                  class="flex flex-col mt-3"
+                  :class="[
+                    `location-${index}`,
+                    openedLocation === index ? '' : 'hidden',
+                  ]"
                 >
-                  IS SPY
-                </p>
-                <!-- <p class="text-sm text-gray-500 truncate dark:text-gray-400">
-                email@windster.com
-              </p> -->
-              </div>
-              <div
-                v-if="player.isAdmin"
-                class="inline-flex items-center text-base font-semibold text-gray-900 dark:text-white"
-              >
-                Administrator
+                  <span
+                    v-for="(role, i) in location.roles"
+                    :key="i"
+                    class="bg-gray-100 text-gray-800 text-xs font-medium me-2 px-2.5 py-0.5 rounded dark:bg-gray-700 dark:text-gray-300 mb-1"
+                    >{{ role }}</span
+                  >
+                </div>
               </div>
             </div>
           </li>

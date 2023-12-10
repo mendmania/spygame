@@ -27,11 +27,16 @@ const handleClick = () => {
       class="card flex flex-col"
       :class="showCard ? 'show-card-data' : 'hide-card-data'"
     >
+      <div class="timer text-3xl font-extrabold">SPYFALL</div>
       <div class="text-sm">
         You are in: <span class="text-xl font-bold">{{ location }}</span>
       </div>
       <div class="text-sm">
         Role: <span class="text-xl font-bold">{{ role }}</span>
+
+        <div class="timer text-5xl font-extrabold">
+          <slot />
+        </div>
       </div>
     </div>
   </div>
@@ -78,9 +83,20 @@ const handleClick = () => {
       opacity: 0;
     }
   }
-
+  .timer {
+    color: transparent;
+    transition: all 1s ease, opacity 1s, color 0.5s ease, opacity 0.5s ease 0.5s;
+  }
   &.hide-card-data {
-    transition: all 1s ease, opacity 1s, color 0.5s ease, opacity 0.5s ease .5s;
+    transition: all 1s ease, opacity 1s, color 0.5s ease, opacity 0.5s ease 0.5s;
+
+    .timer {
+      transition: all 1s ease, opacity 1s, color 0.5s ease 0.5s,
+        opacity 0.5s ease 0.5s;
+
+      color: #fff;
+      transform: rotateY(180deg);
+    }
   }
 }
 
