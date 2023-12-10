@@ -14,41 +14,18 @@ const props = defineProps({
   },
 });
 
-const holdTimeout = ref(null);
-const isHolding = ref(false);
-
-const startHold = () => {
-  holdTimeout.value = setTimeout(() => {
-    isHolding.value = true;
-  }, 300);
-};
-
-const endHold = () => {
-  clearTimeout(holdTimeout.value);
-  isHolding.value = false;
-};
+const showCard = ref(false);
 
 const handleClick = () => {
-  // if (isHolding.value) {
-  //   console.log("Button clicked after holding");
-  // } else {
-  //   console.log("Button clicked");
-  // }
-
-  isHolding.value = false;
+  showCard.value = !showCard.value;
 };
 </script>
 
 <template>
-  <div
-    class="game-card"
-    @click="handleClick"
-    @pointerdown="startHold"
-    @pointerup="endHold"
-  >
+  <div class="game-card" @click="handleClick">
     <div
       class="card flex flex-col"
-      :class="isHolding ? 'show-card-data' : 'hide-card-data'"
+      :class="showCard ? 'show-card-data' : 'hide-card-data'"
     >
       <div class="text-sm">
         You are in: <span class="text-xl font-bold">{{ location }}</span>
@@ -83,23 +60,28 @@ const handleClick = () => {
 }
 
 .card {
-  transition: all 0.7s ease;
+  transition: all 1s ease, opacity 1s, color 1s ease 0.5s, opacity 1s ease 0.5s;
   transform: perspective(600px) rotateY(0deg);
+  &::before,
+  &::after {
+    transition: opacity 0.5s ease 0.5s;
+    opacity: 1;
+  }
 
   &.show-card-data {
     color: #58c7fa;
     transform: perspective(600px) rotateY(180deg);
 
-    // &::before,
-    // &::after {
-    //   animation: none;
-    //   opacity: 0;
-    // }
+    &::before,
+    &::after {
+      transition: opacity 0.5s ease 0s;
+      opacity: 0;
+    }
   }
 
-  // &.hide-card-data {
-  //   transform: perspective(600px) rotateY(1800deg);
-  // }
+  &.hide-card-data {
+    transition: all 1s ease, opacity 1s, color 0.5s ease, opacity 0.5s ease .5s;
+  }
 }
 
 .card::before {
