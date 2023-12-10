@@ -60,23 +60,28 @@ const handleClick = () => {
 }
 
 .card {
-  transition: all 1s ease;
+  transition: all 1s ease, opacity 1s, color 1s ease 0.5s, opacity 1s ease 0.5s;
   transform: perspective(600px) rotateY(0deg);
+  &::before,
+  &::after {
+    transition: opacity 0.5s ease 0.5s;
+    opacity: 1;
+  }
 
   &.show-card-data {
     color: #58c7fa;
     transform: perspective(600px) rotateY(180deg);
 
-    // &::before,
-    // &::after {
-    //   animation: none;
-    //   opacity: 0;
-    // }
+    &::before,
+    &::after {
+      transition: opacity 0.5s ease 0s;
+      opacity: 0;
+    }
   }
 
-  // &.hide-card-data {
-  //   transform: perspective(600px) rotateY(1800deg);
-  // }
+  &.hide-card-data {
+    transition: all 1s ease, opacity 1s, color 0.5s ease, opacity 0.5s ease .5s;
+  }
 }
 
 .card::before {
