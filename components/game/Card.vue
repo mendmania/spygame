@@ -14,41 +14,18 @@ const props = defineProps({
   },
 });
 
-const holdTimeout = ref(null);
-const isHolding = ref(false);
-
-const startHold = () => {
-  holdTimeout.value = setTimeout(() => {
-    isHolding.value = true;
-  }, 300);
-};
-
-const endHold = () => {
-  clearTimeout(holdTimeout.value);
-  isHolding.value = false;
-};
+const showCard = ref(false);
 
 const handleClick = () => {
-  // if (isHolding.value) {
-  //   console.log("Button clicked after holding");
-  // } else {
-  //   console.log("Button clicked");
-  // }
-
-  isHolding.value = false;
+  showCard.value = !showCard.value;
 };
 </script>
 
 <template>
-  <div
-    class="game-card"
-    @click="handleClick"
-    @pointerdown="startHold"
-    @pointerup="endHold"
-  >
+  <div class="game-card" @click="handleClick">
     <div
       class="card flex flex-col"
-      :class="isHolding ? 'show-card-data' : 'hide-card-data'"
+      :class="showCard ? 'show-card-data' : 'hide-card-data'"
     >
       <div class="text-sm">
         You are in: <span class="text-xl font-bold">{{ location }}</span>
@@ -83,7 +60,7 @@ const handleClick = () => {
 }
 
 .card {
-  transition: all 0.7s ease;
+  transition: all 1s ease;
   transform: perspective(600px) rotateY(0deg);
 
   &.show-card-data {
