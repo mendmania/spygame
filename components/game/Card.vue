@@ -15,7 +15,7 @@ const props = defineProps({
 });
 
 const holdTimeout = ref(null);
-const isHolding = ref(null);
+const isHolding = ref(false);
 
 const startHold = () => {
   holdTimeout.value = setTimeout(() => {
@@ -42,11 +42,14 @@ const handleClick = () => {
 <template>
   <div
     class="game-card"
-    @mousedown="startHold"
-    @mouseup="endHold"
     @click="handleClick"
+    @pointerdown="startHold"
+    @pointerup="endHold"
   >
-    <div class="card flex flex-col" :class="isHolding ? 'show-card-data' : ''">
+    <div
+      class="card flex flex-col"
+      :class="isHolding ? 'show-card-data' : 'hide-card-data'"
+    >
       <div class="text-sm">
         You are in: <span class="text-xl font-bold">{{ location }}</span>
       </div>
@@ -59,6 +62,9 @@ const handleClick = () => {
 
 
 <style lang="scss" scoped>
+.game-card {
+  transform: perspective(600px) rotateY(180deg);
+}
 .card {
   background: #191c29;
   width: 300px;
@@ -76,27 +82,24 @@ const handleClick = () => {
   outline: none;
 }
 
-// .card:hover {
-//   color: #58c7fa;
-//   transition: color 1s;
-// }
-// .card:hover:before,
-// .card:hover:after {
-//   animation: none;
-//   opacity: 0;
-// }
-
 .card {
+  transition: all 0.7s ease;
+  transform: perspective(600px) rotateY(0deg);
+
   &.show-card-data {
     color: #58c7fa;
-    transition: color 1s;
+    transform: perspective(600px) rotateY(180deg);
 
-    &::before,
-    &::after {
-      animation: none;
-      opacity: 0;
-    }
+    // &::before,
+    // &::after {
+    //   animation: none;
+    //   opacity: 0;
+    // }
   }
+
+  // &.hide-card-data {
+  //   transform: perspective(600px) rotateY(1800deg);
+  // }
 }
 
 .card::before {
@@ -148,12 +151,4 @@ const handleClick = () => {
     --rotate: 360deg;
   }
 }
-
-// a {
-//   color: #212534;
-//   text-decoration: none;
-//   font-family: sans-serif;
-//   font-weight: bold;
-//   margin-top: 2rem;
-// }
 </style>
