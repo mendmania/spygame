@@ -1,42 +1,28 @@
 export const SPY_LOCATIONS = [
-    {
-        location: "City Park",
-        roles: ["Nature Observer", "Picnic Coordinator"],
-    },
-    {
-        location: "Library",
-        roles: ["Bookworm Spy", "Quiet Researcher"],
-    },
-    {
-        location: "Coffee Shop",
-        roles: ["Barista Spy", "Freelancer Hacker"],
-    },
-    {
-        location: "Beach Boardwalk",
-        roles: ["Sunbather Spy", "Sailboat Spotter"],
-    },
-    {
-        location: "Supermarket",
-        roles: ["Grocery Shopper Spy", "Shopping Cart Specialist"],
-    },
-    {
-        location: "Tech Store",
-        roles: ["Gadget Enthusiast", "Tech Support Spy"],
-    },
-    {
-        location: "Hospital",
-        roles: ["Medical Intern Spy", "Patient Records Analyst"],
-    },
-    {
-        location: "Pet Store",
-        roles: ["Animal Lover Spy", "Pet Adoption Coordinator"],
-    },
-    {
-        location: "Movie Theater",
-        roles: ["Film Critic Spy", "Popcorn Expert"],
-    },
-    {
-        location: "Fitness Center",
-        roles: ["Fitness Instructor Spy", "Smoothie Bar Specialist"],
-    }
+    { location: "Factory", roles: ["Assembly Line Worker", "Quality Control Inspector", "Production Manager"] },
+    { location: "Farm", roles: ["Farmhand", "Agricultural Technician", "Farm Manager"] },
+    { location: "Restaurant", roles: ["Chef", "Waiter", "Restaurant Manager"] },
+    { location: "Retail Store", roles: ["Sales Associate", "Cashier", "Store Manager"] },
+    { location: "Hospital", roles: ["Nurse", "Doctor", "Hospital Administrator"] },
+    { location: "School", roles: ["Teacher", "Librarian", "Principal"] },
+    { location: "Construction Site", roles: ["Construction Worker", "Site Supervisor", "Safety Officer"] },
+    { location: "Office Building", roles: ["Receptionist", "Office Manager", "IT Support"] },
+    { location: "Library", roles: ["Librarian", "Research Assistant", "Library Director"] },
+    { location: "Grocery Store", roles: ["Cashier", "Stock Clerk", "Store Manager"] },
+    { location: "Bank", roles: ["Bank Teller", "Loan Officer", "Branch Manager"] },
+    { location: "Garage", roles: ["Mechanic", "Service Advisor", "Garage Manager"] },
+    { location: "Hotel", roles: ["Concierge", "Housekeeper", "Hotel Manager"] },
+    { location: "Airport", roles: ["Security Officer", "Flight Attendant", "Air Traffic Controller"] },
+    { location: "Cinema", roles: ["Ticket Seller", "Projectionist", "Cinema Manager"] },
+    { location: "Art Gallery", roles: ["Curator", "Art Handler", "Gallery Assistant"] },
+    { location: "Gym", roles: ["Personal Trainer", "Gym Manager", "Fitness Instructor"] },
+    { location: "Law Firm", roles: ["Lawyer", "Legal Secretary", "Paralegal"] },
+    { location: "Pharmacy", roles: ["Pharmacist", "Pharmacy Technician", "Pharmacy Assistant"] },
+    { location: "Fire Station", roles: ["Firefighter", "Fire Chief", "Paramedic"] },
+    { location: "Music Studio", roles: ["Sound Engineer", "Producer", "Recording Artist"] },
+    { location: "Car Dealership", roles: ["Salesperson", "Finance Manager", "Service Technician"] },
+    { location: "Theater", roles: ["Actor", "Director", "Stage Manager"] },
+    { location: "University", roles: ["Professor", "Research Assistant", "Dean"] },
+    { location: "Zoo", roles: ["Zookeeper", "Veterinarian", "Educational Program Coordinator"] },
 ]
+

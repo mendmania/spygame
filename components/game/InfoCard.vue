@@ -16,7 +16,9 @@ const props = defineProps({
         Room code:
       </h5>
       <div class="flex items-baseline text-gray-900 dark:text-white">
-        <span class="text-5xl font-extrabold tracking-tight">{{ text }}</span>
+        <span class="text-5xl font-extrabold tracking-tight select-all">{{
+          text
+        }}</span>
       </div>
     </div>
   </div>

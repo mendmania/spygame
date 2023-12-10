@@ -31,7 +31,7 @@ onMounted(() => {
 <template>
   <div class="h-full flex flex-col">
     <TheHeader />
-      <NuxtPage />
+    <NuxtPage />
     <TheFooter />
   </div>
 </template>

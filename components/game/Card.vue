@@ -14,19 +14,39 @@ const props = defineProps({
   },
 });
 
-const showCardData = ref(false);
+const holdTimeout = ref(null);
+const isHolding = ref(null);
 
-const onCardClick = () => {
-  showCardData.value = !showCardData.value;
+const startHold = () => {
+  holdTimeout.value = setTimeout(() => {
+    isHolding.value = true;
+  }, 300);
+};
+
+const endHold = () => {
+  clearTimeout(holdTimeout.value);
+  isHolding.value = false;
+};
+
+const handleClick = () => {
+  // if (isHolding.value) {
+  //   console.log("Button clicked after holding");
+  // } else {
+  //   console.log("Button clicked");
+  // }
+
+  isHolding.value = false;
 };
 </script>
 
 <template>
-  <div class="game-card" @click="onCardClick">
-    <div
-      class="card flex flex-col"
-      :class="showCardData ? 'show-card-data' : ''"
-    >
+  <div
+    class="game-card"
+    @mousedown="startHold"
+    @mouseup="endHold"
+    @click="handleClick"
+  >
+    <div class="card flex flex-col" :class="isHolding ? 'show-card-data' : ''">
       <div class="text-sm">
         You are in: <span class="text-xl font-bold">{{ location }}</span>
       </div>
