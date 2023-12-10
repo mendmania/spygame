@@ -2,9 +2,7 @@
 </script>
 
 <template>
-  <div class="h-full">
-    <Landing/>
-  </div>
+    <Landing />
 </template>
 
 

@@ -63,9 +63,6 @@ const leaveGame = () => {
         </button>
       </div>
 
-      <!-- USER: {{ user }}
-
-    > -->
       <div>
         <button
           v-if="user?.isAdmin"
@@ -85,6 +82,7 @@ const leaveGame = () => {
     </div>
 
     <GamePlayersList :players="gameData?.game?.players" />
+    <GameLocationsList />
   </div>
 </template>
 

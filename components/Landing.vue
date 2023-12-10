@@ -33,7 +33,7 @@ const prepareUserToJoinGame = () => {
 
   playerData.fromData({
     username: user.value.username,
-    roomId: roomIdInput.value,
+    roomId: roomIdInput.value.toUpperCase(),
   });
 
   return playerData;
@@ -53,10 +53,12 @@ const createRoom = () => {
 const joinRoom = () => {
   const userData = prepareUserToJoinGame();
 
-  firebase.value.joinGame(roomIdInput.value, userData);
+  const roomId = roomIdInput.value.toUpperCase();
 
-  playerStore.setUserRoomId(roomIdInput.value);
-  playerStore.setUserRoomIdOnStorage(roomIdInput.value);
+  firebase.value.joinGame(roomId, userData);
+
+  playerStore.setUserRoomId(roomId);
+  playerStore.setUserRoomIdOnStorage(roomId);
 };
 
 onMounted(() => {});
@@ -114,7 +116,7 @@ const onUsernameInput = ($e) => {
           v-model="roomIdInput"
           type="search"
           id="search"
-          class="block w-full p-4 ps-10 text-sm text-gray-900 border border-gray-300 rounded-lg bg-gray-50 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+          class="uppercase block w-full p-4 ps-10 text-sm text-gray-900 border border-gray-300 rounded-lg bg-gray-50 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
           placeholder="Room"
           required
         />
@@ -126,6 +128,7 @@ const onUsernameInput = ($e) => {
         </button>
       </div>
     </div>
+    <GameLocationsList />
   </div>
 </template>
   
