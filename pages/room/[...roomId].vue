@@ -23,7 +23,7 @@ onMounted(async () => {
 });
 
 const startGame = () => {
-  firebase.value.startStopGameById(roomId.value, true);
+  firebase.value.startStopGameById(roomId.value, true, 8);
 };
 
 const stopGame = () => {
@@ -44,7 +44,13 @@ const leaveGame = () => {
   <div class="w-full flex flex-col items-center justify-center">
     <GameInfoCard :text="gameData?.game.roomId" />
 
-    <GameCard :location="user.location" :role="user.role" />
+    <GameCard :location="user.location" :role="user.role">
+      <GameTimer
+        v-if="gameData?.game.startTime"
+        :timestamp="gameData?.game.startTime"
+      />
+    </GameCard>
+
     <div class="flex py-10">
       <div v-if="user?.isAdmin">
         <button
@@ -52,7 +58,7 @@ const leaveGame = () => {
           class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded mr-5"
           @click="stopGame"
         >
-          Stop Game
+          Finish Game
         </button>
         <button
           v-else
@@ -69,7 +75,7 @@ const leaveGame = () => {
           class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded mr-5"
           @click="endGame"
         >
-          End Game
+          Close Room
         </button>
         <button
           v-else
@@ -81,7 +87,10 @@ const leaveGame = () => {
       </div>
     </div>
 
-    <GamePlayersList :players="gameData?.game?.players" />
+    <GamePlayersList
+      :players="gameData?.game?.players"
+      :showSpy="!gameData?.game.startTime"
+    />
     <GameLocationsList />
   </div>
 </template>

@@ -1,11 +1,19 @@
 <script setup>
+import { ref } from "vue";
 const props = defineProps({
   players: {
     type: Array,
     required: false,
     default: [],
   },
+  showSpy: {
+    type: Boolean,
+    required: false,
+    default: false,
+  },
 });
+
+const isSpy = ref(props.showSpy);
 </script>
 
 <template>
@@ -42,11 +50,20 @@ const props = defineProps({
                   {{ index + 1 }}.
                 </p>
               </div>
-              <div class="flex-1 min-w-0 ms-4">
+              <div
+                class="flex-1 min-w-0 ms-4 flex justify-between items-center"
+              >
                 <p
                   class="text-sm font-medium text-gray-900 truncate dark:text-white"
+                  :class="player.isSpy && showSpy ? '!text-red-500' : ''"
                 >
                   {{ player.username }}
+                </p>
+                <p
+                  class="text-red-500 text-xs text-bold mr-3"
+                  v-if="player.isSpy && showSpy"
+                >
+                  IS SPY
                 </p>
                 <!-- <p class="text-sm text-gray-500 truncate dark:text-gray-400">
                 email@windster.com
