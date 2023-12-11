@@ -56,7 +56,6 @@ const joinRoom = async () => {
 
   const roomResponse = await firebase.value.joinGame(roomId, userData);
 
-  console.log(roomResponse);
   if (!roomResponse) {
     alert("Room does not exist!");
     return;
