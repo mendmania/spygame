@@ -52,7 +52,7 @@ const gameLocation = () => {
     (v) => v.isSpy != true && v.location != -1
   );
 
-  if (locations.length > 0) {
+  if (locations && locations.length > 0) {
     const [gameLocation] = locations;
     return gameLocation.location;
   }
