@@ -49,12 +49,18 @@ const createRoom = () => {
   navigateTo(roomUrl.value);
 };
 
-const joinRoom = () => {
+const joinRoom = async () => {
   const userData = prepareUserToJoinGame();
 
   const roomId = roomIdInput.value.toUpperCase();
 
-  firebase.value.joinGame(roomId, userData);
+  const roomResponse = await firebase.value.joinGame(roomId, userData);
+
+  console.log(roomResponse);
+  if (!roomResponse) {
+    alert("Room does not exist!");
+    return;
+  }
 
   playerStore.setUserRoomId(roomId);
   playerStore.setUserRoomIdOnStorage(roomId);

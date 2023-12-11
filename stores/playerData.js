@@ -9,7 +9,7 @@ export const usePlayerStore = defineStore('playerData', {
       username: '',
       roomId: null,
       isSpy: false,
-      location: 'Table',
+      location: -1,
       role: 'Player'
     }
   }),

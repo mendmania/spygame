@@ -31,12 +31,33 @@ const stopGame = () => {
 };
 
 const endGame = () => {
-  firebase.value.endGameById(roomId.value);
+  var userResponse = window.confirm(
+    "Do you want to close room and end the game?"
+  );
+  if (userResponse) {
+    firebase.value.endGameById(roomId.value);
+  }
 };
 const leaveGame = () => {
+  var userResponse = window.confirm("Are you sure you want to leave the game?");
+  if (!userResponse) return;
+
   firebase.value.removePlayerFromRoomById(roomId.value, user.value.username);
   playerStore.unsetUserRoomIdOnStorage();
   navigateTo("/");
+};
+
+const gameLocation = () => {
+  const locations = gameData.value?.game?.players.filter(
+    (v) => v.isSpy != true && v.location != -1
+  );
+
+  if (locations.length > 0) {
+    const [gameLocation] = locations;
+    return gameLocation.location;
+  }
+
+  return -1;
 };
 </script>
 
@@ -44,11 +65,20 @@ const leaveGame = () => {
   <div class="w-full flex flex-col items-center justify-center">
     <GameInfoCard :text="gameData?.game.roomId" />
 
-    <GameCard :location="user.location" :role="user.role">
+    <GameCard :location="user.location" :role="user.role" :canFlipCard="true">
       <GameTimer
         v-if="gameData?.game.startTime"
         :timestamp="gameData?.game.startTime"
       />
+      <div v-else class="text-transparen t flex flex-col">
+        <span v-if="gameLocation() != -1" class="text-base"> Location: </span>
+        <span v-if="gameLocation() != -1" class="text-2xl">
+          "{{ gameLocation() }}"
+        </span>
+        <span v-else class="text-base">
+          Unable to determine the location due to insufficient players.
+        </span>
+      </div>
     </GameCard>
 
     <div class="flex py-10">
