@@ -19,13 +19,15 @@
             >Spymania</span
           >
         </NuxtLink>
-        <!-- <ul
+        <ul
           class="flex flex-wrap items-center mb-6 text-sm font-medium text-gray-500 sm:mb-0 dark:text-gray-400"
         >
           <li>
-            <a href="#" class="hover:underline me-4 md:me-6">About</a>
+            <NuxtLink to="/learn-to-play" class="hover:underline me-4 md:me-6"
+              >Learn To Play</NuxtLink
+            >
           </li>
-          <li>
+          <!-- <li>
             <a href="#" class="hover:underline me-4 md:me-6">Privacy Policy</a>
           </li>
           <li>
@@ -33,11 +35,9 @@
           </li>
           <li>
             <a href="#" class="hover:underline">Contact</a>
-          </li>
-        </ul> -->
+          </li> -->
+        </ul>
       </div>
-
-
     </div>
   </footer>
 </template>
