@@ -10,7 +10,7 @@ const props = defineProps({
   role: {
     type: String,
     required: false,
-    default: "Spy",
+    default: -1,
   },
 });
 
@@ -28,16 +28,19 @@ const handleClick = () => {
       :class="showCard ? 'show-card-data' : 'hide-card-data'"
     >
       <div class="timer text-3xl font-extrabold">SPYFALL</div>
-      <div class="text-sm">
-        You are in: <span class="text-xl font-bold">{{ location }}</span>
-      </div>
-      <div class="text-sm">
-        Role: <span class="text-xl font-bold">{{ role }}</span>
+      <div v-if="role != -1 && location != -1">
+        <div class="text-sm">
+          You are in: <span class="text-xl font-bold">{{ location }}</span>
+        </div>
+        <div class="text-sm">
+          Role: <span class="text-xl font-bold">{{ role }}</span>
 
-        <div class="timer text-5xl font-extrabold">
-          <slot />
+          <div class="timer text-5xl font-extrabold">
+            <slot />
+          </div>
         </div>
       </div>
+      <div v-else>The game has not started yet!</div>
     </div>
   </div>
 </template>

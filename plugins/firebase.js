@@ -48,7 +48,12 @@ export default defineNuxtPlugin((nuxtApp) => {
       const allRooms = await getRooms()
 
       const roomExists = allRooms[roomId]
+
+      console.log(roomExists)
+      if (!roomExists) return false
+
       const { players } = roomExists.game
+
       if (players.findIndex(v => v.username === userData.username) === -1) {
         players.push(userData)
 
@@ -64,6 +69,8 @@ export default defineNuxtPlugin((nuxtApp) => {
       if (!!roomExists) {
         navigateTo(`/room/${roomId}`)
       }
+
+      return true
 
     }
 

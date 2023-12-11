@@ -5,8 +5,13 @@ const props = defineProps({
     type: Number,
     required: true,
   },
+  canFlipCard: {
+    type: Boolean,
+    required: true,
+  },
 });
 
+const canToggleCard = ref(props.canFlipCard);
 const seconds = ref(0);
 const timerRunning = ref(false);
 
@@ -31,8 +36,6 @@ const formattedTime = computed(() => {
   }${remainingSeconds}`;
   return `${minutes}:${formattedSeconds}`;
 });
-
-const totalSeconds = computed(() => seconds.value);
 
 const startTimer = () => {
   if (timerRunning.value) {
