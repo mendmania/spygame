@@ -49,7 +49,6 @@ export default defineNuxtPlugin((nuxtApp) => {
 
       const roomExists = allRooms[roomId]
 
-      console.log(roomExists)
       if (!roomExists) return false
 
       const { players } = roomExists.game
@@ -119,7 +118,7 @@ export default defineNuxtPlugin((nuxtApp) => {
         const data = snapshot.val();
         gameStore.updateGameData(data)
         playerStore.updatePlayerData(data)
-        console.log('UPDATE Game data', roomId, data)
+        // console.log('UPDATE Game data', roomId, data)
         playerStore.updatePlayerPosition(data.game.players)
 
       });
@@ -130,7 +129,6 @@ export default defineNuxtPlugin((nuxtApp) => {
 
       const roomExists = allRooms[roomId]
       const { players } = roomExists.game
-      console.log(players)
 
       roomExists.game.isActive = activate
 
@@ -143,8 +141,6 @@ export default defineNuxtPlugin((nuxtApp) => {
         roomExists.game.startTime = startGameTime(gameTime)
         const playerStore = usePlayerStore();
 
-        console.log(roomExists.game.players)
-
         //Gameready to start
         const playersLength = roomExists.game.players.length
         const randomIndex = Math.floor(Math.random() * playersLength);
@@ -152,11 +148,9 @@ export default defineNuxtPlugin((nuxtApp) => {
         const locationLength = SPY_LOCATIONS.length
         const randomLocationIndex = Math.floor(Math.random() * locationLength);
 
-        console.log(SPY_LOCATIONS[randomLocationIndex])
         const locationData = SPY_LOCATIONS[randomLocationIndex]
         roomExists.game.players.map((v, i) => {
           const randomRoleIndex = Math.floor(Math.random() * locationData.roles.length);
-          console.log(locationData.roles)
           v.location = locationData.location
           v.role = locationData.roles[randomRoleIndex]
 
@@ -170,7 +164,6 @@ export default defineNuxtPlugin((nuxtApp) => {
 
           return v
         })
-        console.log(roomExists.game.players)
 
       }
 
@@ -217,7 +210,6 @@ export default defineNuxtPlugin((nuxtApp) => {
 
       roomExists.game.players = roomExists.game.players.filter(user => user.username !== userId)
 
-      console.log(roomExists)
       if (!!roomExists) {
         set(ref(database, 'rooms/' + roomId), {
           game: roomExists.game

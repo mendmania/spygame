@@ -61,7 +61,6 @@ useHead({
 
 onMounted(() => {
   const spyData = useGetUserDataLocalStorage();
-  console.error("useGetUserRoomuseGetUserRoomuseGetUserRoom", !!spyData);
 
   const { username, roomId } = spyData ? spyData : {};
 
