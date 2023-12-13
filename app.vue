@@ -23,6 +23,11 @@ useHead({
         "Spyfall, board game, deception, spy, party game, social deduction, strategy game",
     },
     {
+      hid: "og:type",
+      property: "og:type",
+      content: "website",
+    },
+    {
       hid: "og:title",
       property: "og:title",
       content: "Spyfall Board Game - Uncover the Deception",

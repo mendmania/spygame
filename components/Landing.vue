@@ -104,7 +104,7 @@ const onUsernameInput = ($e) => {
     </div>
 
     <button
-      class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+      class="bg-blue-700 hover:bg-blue-900 text-white font-bold py-2 px-4 rounded"
       @click="createRoom"
     >
       Create room
@@ -126,7 +126,7 @@ const onUsernameInput = ($e) => {
         />
         <button
           @click="joinRoom"
-          class="text-white absolute end-7 bottom-2.5 bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-4 py-2 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800"
+          class="text-white absolute end-7 bottom-2.5 bg-blue-700 hover:bg-blue-900 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-4 py-2 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800"
         >
           Join
         </button>
