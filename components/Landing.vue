@@ -110,7 +110,7 @@ const onUsernameInput = ($e) => {
       Create room
     </button>
 
-    <div class="flex items-baseline text-gray-900 dark:text-white my-5">
+    <div class="flex items-baseline text-gray-200 dark:text-white my-5">
       <span class="text-5xl font-extrabold tracking-tight">OR</span>
     </div>
 
