@@ -1,4 +1,5 @@
 <script setup>
+import { ref } from "vue";
 </script>
 
 <template>
@@ -10,9 +11,9 @@
           class="flex items-center space-x-3 rtl:space-x-reverse"
         >
           <img
-            src="`~/assets/images/SpyfallIcon.png`"
+            :src="'https://spyfallgame.com/SpyfallIcon.png'"
             class="h-12"
-            alt="Flowbite Logo"
+            alt="Spyfall Game Logo"
           />
           <span
             class="self-center text-2xl font-semibold whitespace-nowrap dark:text-white"
