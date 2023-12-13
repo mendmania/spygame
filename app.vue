@@ -33,12 +33,16 @@ useHead({
       content:
         "Spyfall is a thrilling board game of deception. Discover who the spy is before it’s too late! Learn the rules, strategies, and enjoy hours of espionage fun.",
     },
-    { hid: "og:image", property: "og:image", content: "URL_TO_GAME_IMAGE" },
-    { hid: "og:url", property: "og:url", content: "URL_TO_GAME_PAGE" },
+    {
+      hid: "og:image",
+      property: "og:image",
+      content: "https://spyfallgame.com/SpyfallBanner.jpg",
+    },
+    { hid: "og:url", property: "og:url", content: "spyfallgame.com" },
     {
       hid: "twitter:card",
       name: "twitter:card",
-      content: "summary_large_image",
+      content: "https://spyfallgame.com/SpyfallBanner.jpg",
     },
     {
       hid: "twitter:title",
@@ -54,7 +58,7 @@ useHead({
     {
       hid: "twitter:image",
       name: "twitter:image",
-      content: "URL_TO_GAME_IMAGE",
+      content: "https://spyfallgame.com/SpyfallBanner.jpg",
     },
   ],
 });

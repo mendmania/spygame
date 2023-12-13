@@ -16,7 +16,7 @@
           /> -->
           <span
             class="self-center text-2xl font-semibold whitespace-nowrap dark:text-white"
-            >Spymania</span
+            >Spyfall Game</span
           >
         </NuxtLink>
         <ul
@@ -43,7 +43,7 @@
         class="block text-sm text-gray-500 sm:text-center dark:text-gray-400"
         >© 2023
         <NuxtLink
-          to="https://github.com/mendmania"
+          to="https://www.buymeacoffee.com/mendmania"
           class="cursor-pointer hover:underline"
         >
           mendmania </NuxtLink
