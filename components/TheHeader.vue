@@ -4,7 +4,7 @@ import { ref } from "vue";
 
 <template>
   <header class="bg-white rounded-lg shadow dark:bg-gray-900 m-4">
-    <div class="w-full max-w-screen-xl mx-auto p-4 md:py-8">
+    <div class="w-full max-w-screen-xl mx-auto p-4 md:py-6">
       <div class="sm:flex sm:items-center sm:justify-between">
         <NuxtLink
           to="/"
@@ -12,7 +12,7 @@ import { ref } from "vue";
         >
           <img
             :src="'https://spyfallgame.com/SpyfallIcon.png'"
-            class="h-12"
+            class="h-[64px] w-[64px]"
             alt="Spyfall Game Logo"
           />
           <span
