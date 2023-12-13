@@ -3,7 +3,7 @@ const props = defineProps({
   text: {
     type: String,
     required: false,
-    default: '****'
+    default: "****",
   },
 });
 </script>
@@ -16,7 +16,7 @@ const props = defineProps({
       <h5 class="text-xl font-medium text-gray-500 dark:text-gray-400 mr-3">
         Room code:
       </h5>
-      <div class="flex items-baseline text-gray-900 dark:text-white">
+      <div class="flex items-baseline text-gray-300 dark:text-white">
         <span class="text-5xl font-extrabold tracking-tight select-all">{{
           text
         }}</span>
