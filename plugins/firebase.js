@@ -124,11 +124,23 @@ export default defineNuxtPlugin((nuxtApp) => {
       });
     }
 
+    const getRandomInt = async max => {
+      if (typeof window !== 'undefined' && window.crypto && window.crypto.getRandomValues) {
+        const randomArray = new Uint32Array(1);
+        window.crypto.getRandomValues(randomArray);
+        return randomArray[0] % max;
+      } else {
+        return Math.floor(Math.random() * max);
+      }
+    }
+
+    // const locationLength = 10; // Replace this with your desired maximum value
+    // const randomIndex = await getRandomInt(locationLength);
+
     const startStopGameById = async (roomId, activate = true, gameTime = 8) => {
       const allRooms = await getRooms()
 
       const roomExists = allRooms[roomId]
-      const { players } = roomExists.game
 
       roomExists.game.isActive = activate
 
@@ -139,24 +151,24 @@ export default defineNuxtPlugin((nuxtApp) => {
       if (activate) {
 
         roomExists.game.startTime = startGameTime(gameTime)
-        const playerStore = usePlayerStore();
 
-        //Gameready to start
         const playersLength = roomExists.game.players.length
-        const randomIndex = Math.floor(Math.random() * playersLength);
+        const randomIndex = await getRandomInt(playersLength);
 
         const locationLength = SPY_LOCATIONS.length
-        const randomLocationIndex = Math.floor(Math.random() * locationLength);
+        const randomLocationIndex = await getRandomInt(locationLength);
 
         const locationData = SPY_LOCATIONS[randomLocationIndex]
         roomExists.game.players.map((v, i) => {
-          const randomRoleIndex = Math.floor(Math.random() * locationData.roles.length);
+          const roleLength = locationData.roles.length
+          const randomRoleIndex = Math.floor(Math.random() * roleLength);
+
           v.location = locationData.location
           v.role = locationData.roles[randomRoleIndex]
 
           if (i === randomIndex) {
             v.isSpy = true
-            v.location = 'Secret'
+            v.location = 'Secret Location'
             v.role = 'Spy'
           } else {
             v.isSpy = false
