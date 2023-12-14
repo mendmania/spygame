@@ -4,6 +4,8 @@ import { useGameStore } from "~/stores/gameData";
 import { usePlayerStore } from "~/stores/playerData";
 import { storeToRefs } from "pinia";
 import useFirebase from "~/composables/useFirebase";
+import useGetUserDataLocalStorage from "~/composables/useGetUserDataLocalStorage";
+import Player from "~/models/user/Player";
 
 const gameStore = useGameStore();
 const playerStore = usePlayerStore();
@@ -16,11 +18,41 @@ const currentRoute = router.currentRoute;
 const routeData = ref(currentRoute);
 const firebase = ref(useFirebase());
 const roomId = ref(routeData.value.params.roomId[0]);
-const isAdmin = ref(null);
 
 onMounted(async () => {
   await firebase.value.getRealtimeRoomData(roomId.value);
+
+  const spyData = useGetUserDataLocalStorage();
+
+  if (!spyData.roomId) {
+    joinRoom(spyData.username);
+  }
 });
+
+const prepareUserToJoinGame = (username) => {
+  const playerData = new Player();
+
+  console.log(username);
+  playerData.fromData({
+    username: username,
+    roomId: roomId.value,
+  });
+
+  return playerData;
+};
+
+const joinRoom = async (data) => {
+  const userData = prepareUserToJoinGame(data);
+  const roomResponse = await firebase.value.joinGame(roomId.value, userData);
+
+  if (!roomResponse) {
+    alert("Room does not exist!");
+    return;
+  }
+
+  playerStore.setUserRoomId(roomId.value);
+  playerStore.setUserRoomIdOnStorage(roomId.value);
+};
 
 const startGame = () => {
   firebase.value.startStopGameById(roomId.value, true, 8);
