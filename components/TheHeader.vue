@@ -11,7 +11,7 @@ import { ref } from "vue";
           class="flex items-center space-x-3 rtl:space-x-reverse"
         >
           <img
-            :src="'https://spyfallgame.com/SpyfallIcon.png'"
+            :src="'/SpyfallIcon.png'"
             class="h-[64px] w-[64px]"
             alt="Spyfall Game Logo"
           />

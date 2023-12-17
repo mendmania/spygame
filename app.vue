@@ -41,13 +41,13 @@ useHead({
     {
       hid: "og:image",
       property: "og:image",
-      content: "https://spyfallgame.com/SpyfallBanner.jpg",
+      content: "https://spy.virtualboardzone.com/SpyfallBanner.jpg",
     },
-    { hid: "og:url", property: "og:url", content: "spyfallgame.com" },
+    { hid: "og:url", property: "og:url", content: "spy.virtualboardzone.com" },
     {
       hid: "twitter:card",
       name: "twitter:card",
-      content: "https://spyfallgame.com/SpyfallBanner.jpg",
+      content: "https://spy.virtualboardzone.com/SpyfallBanner.jpg",
     },
     {
       hid: "twitter:title",
@@ -63,7 +63,7 @@ useHead({
     {
       hid: "twitter:image",
       name: "twitter:image",
-      content: "https://spyfallgame.com/SpyfallBanner.jpg",
+      content: "https://spy.virtualboardzone.com/SpyfallBanner.jpg",
     },
   ],
 });
