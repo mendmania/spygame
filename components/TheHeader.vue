@@ -12,7 +12,7 @@ import { ref } from "vue";
         >
           <img
             :src="'/SpyfallIcon.png'"
-            class="h-[64px] w-[64px]"
+            class="h-[64px] w-[64px] "
             alt="Spyfall Game Logo"
           />
           <span
