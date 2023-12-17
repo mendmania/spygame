@@ -9,7 +9,7 @@ export const usePlayerStore = defineStore('playerData', {
       username: '',
       roomId: null,
       isSpy: false,
-      location: 'Table',
+      location: -1,
       role: 'Player'
     }
   }),
@@ -35,8 +35,6 @@ export const usePlayerStore = defineStore('playerData', {
     },
     updatePlayerPosition(players) {
       const indexFound = players.findIndex(p => p.username === this.user.username)
-      console.log(indexFound)
-      console.log(this.user.username)
       if (indexFound >= 0) {
         const currentPosition = players[indexFound]
         this.user.isSpy = currentPosition.isSpy

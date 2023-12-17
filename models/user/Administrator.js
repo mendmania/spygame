@@ -4,7 +4,7 @@ class Administrator {
         this.isAdmin = true
         this.roomId = null
         this.isSpy = false
-        this.location = ''
+        this.location = -1
     }
 
     fromData(data){

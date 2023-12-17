@@ -17,11 +17,11 @@ export default defineNuxtPlugin((nuxtApp) => {
     const config = useRuntimeConfig();
     const firebaseConfig = {
       apiKey: config.public.apiKey,
-      authDomain:config.public.authDomain,
+      authDomain: config.public.authDomain,
       projectId: config.public.projectId,
       storageBucket: config.public.storageBucket,
       messagingSenderId: config.public.messagingSenderId,
-      appId:config.public.appId,
+      appId: config.public.appId,
       measurementId: config.public.measurementId
     };
 
@@ -48,8 +48,11 @@ export default defineNuxtPlugin((nuxtApp) => {
       const allRooms = await getRooms()
 
       const roomExists = allRooms[roomId]
+
+      if (!roomExists) return false
+
       const { players } = roomExists.game
-      console.log(players)
+
       if (players.findIndex(v => v.username === userData.username) === -1) {
         players.push(userData)
 
@@ -65,6 +68,8 @@ export default defineNuxtPlugin((nuxtApp) => {
       if (!!roomExists) {
         navigateTo(`/room/${roomId}`)
       }
+
+      return true
 
     }
 
@@ -113,44 +118,57 @@ export default defineNuxtPlugin((nuxtApp) => {
         const data = snapshot.val();
         gameStore.updateGameData(data)
         playerStore.updatePlayerData(data)
-        console.log('UPDATE Game data', roomId, data)
+        // console.log('UPDATE Game data', roomId, data)
         playerStore.updatePlayerPosition(data.game.players)
 
       });
     }
 
-    const startStopGameById = async (roomId, activate = true) => {
+    const getRandomInt = async max => {
+      if (typeof window !== 'undefined' && window.crypto && window.crypto.getRandomValues) {
+        const randomArray = new Uint32Array(1);
+        window.crypto.getRandomValues(randomArray);
+        return randomArray[0] % max;
+      } else {
+        return Math.floor(Math.random() * max);
+      }
+    }
+
+    // const locationLength = 10; // Replace this with your desired maximum value
+    // const randomIndex = await getRandomInt(locationLength);
+
+    const startStopGameById = async (roomId, activate = true, gameTime = 8) => {
       const allRooms = await getRooms()
 
       const roomExists = allRooms[roomId]
-      const { players } = roomExists.game
-      console.log(players)
 
       roomExists.game.isActive = activate
 
+      if (!activate) {
+        roomExists.game.startTime = false
+      }
+
       if (activate) {
-        const playerStore = usePlayerStore();
 
-        console.log(roomExists.game.players)
+        roomExists.game.startTime = startGameTime(gameTime)
 
-        //Gameready to start
         const playersLength = roomExists.game.players.length
-        const randomIndex = Math.floor(Math.random() * playersLength);
+        const randomIndex = await getRandomInt(playersLength);
 
         const locationLength = SPY_LOCATIONS.length
-        const randomLocationIndex = Math.floor(Math.random() * locationLength);
+        const randomLocationIndex = await getRandomInt(locationLength);
 
-        console.log(SPY_LOCATIONS[randomLocationIndex])
         const locationData = SPY_LOCATIONS[randomLocationIndex]
         roomExists.game.players.map((v, i) => {
-          const randomRoleIndex = Math.floor(Math.random() * locationData.roles.length);
-          console.log(locationData.roles)
+          const roleLength = locationData.roles.length
+          const randomRoleIndex = Math.floor(Math.random() * roleLength);
+
           v.location = locationData.location
           v.role = locationData.roles[randomRoleIndex]
 
           if (i === randomIndex) {
             v.isSpy = true
-            v.location = 'Secret'
+            v.location = 'Secret Location'
             v.role = 'Spy'
           } else {
             v.isSpy = false
@@ -158,7 +176,6 @@ export default defineNuxtPlugin((nuxtApp) => {
 
           return v
         })
-        console.log(roomExists.game.players)
 
       }
 
@@ -167,6 +184,16 @@ export default defineNuxtPlugin((nuxtApp) => {
           game: roomExists.game
         });
       }
+    }
+
+    const startGameTime = (data = 8) => {
+      const startDate = new Date()
+      const time = startDate.getTime()
+      let timeInSeconds = (time / 60000)
+      timeInSeconds += data
+      timeInSeconds = timeInSeconds * 60000
+
+      return Math.floor(timeInSeconds)
     }
 
     const endGameById = async (roomId) => {
@@ -193,9 +220,8 @@ export default defineNuxtPlugin((nuxtApp) => {
       const roomExists = allRooms[roomId]
 
 
-      roomExists.game.players = roomExists.game.players.filter(user=> user.username !== userId)
+      roomExists.game.players = roomExists.game.players.filter(user => user.username !== userId)
 
-      console.log(roomExists)
       if (!!roomExists) {
         set(ref(database, 'rooms/' + roomId), {
           game: roomExists.game

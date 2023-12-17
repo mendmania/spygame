@@ -4,7 +4,7 @@ class Player {
         this.isAdmin = false
         this.roomId = ''
         this.isSpy = false
-        this.location = ''
+        this.location = -1
     }
 
     fromData(data){

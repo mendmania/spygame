@@ -1,5 +1,6 @@
 
 <script setup>
+import { ref } from "vue";
 const props = defineProps({
   location: {
     type: String,
@@ -9,26 +10,46 @@ const props = defineProps({
   role: {
     type: String,
     required: false,
-    default: "Spy",
+    default: -1,
   },
 });
+
+const showCard = ref(false);
+
+const handleClick = () => {
+  showCard.value = !showCard.value;
+};
 </script>
 
 <template>
-  <div class="game-card">
-    <div class="card flex flex-col">
-      <div class="text-sm">
-        You are in: <span class="text-xl font-bold">{{ location }}</span>
+  <div class="game-card" @click="handleClick">
+    <div
+      class="card flex flex-col"
+      :class="showCard ? 'show-card-data' : 'hide-card-data'"
+    >
+      <div class="timer text-3xl font-extrabold">SPYFALL</div>
+      <div v-if="role != -1 && location != -1">
+        <div class="text-sm">
+          You are in: <span class="text-xl font-bold">{{ location }}</span>
+        </div>
+        <div class="text-sm">
+          Role: <span class="text-xl font-bold">{{ role }}</span>
+
+          <div class="timer text-5xl font-extrabold">
+            <slot />
+          </div>
+        </div>
       </div>
-      <div class="text-sm">
-        Role: <span class="text-xl font-bold">{{ role }}</span>
-      </div>
+      <div v-else>The game has not started yet!</div>
     </div>
   </div>
 </template>
 
 
 <style lang="scss" scoped>
+.game-card {
+  transform: perspective(600px) rotateY(180deg);
+}
 .card {
   background: #191c29;
   width: 300px;
@@ -43,16 +64,43 @@ const props = defineProps({
   font-size: 1.5em;
   color: #58c7fa00;
   cursor: pointer;
+  outline: none;
 }
 
-.card:hover {
-  color: #58c7fa;
-  transition: color 1s;
-}
-.card:hover:before,
-.card:hover:after {
-  animation: none;
-  opacity: 0;
+.card {
+  transition: all 1s ease, opacity 1s, color 1s ease 0.5s, opacity 1s ease 0.5s;
+  transform: perspective(600px) rotateY(0deg);
+  &::before,
+  &::after {
+    transition: opacity 0.5s ease 0.5s;
+    opacity: 1;
+  }
+
+  &.show-card-data {
+    color: #58c7fa;
+    transform: perspective(600px) rotateY(180deg);
+
+    &::before,
+    &::after {
+      transition: opacity 0.5s ease 0s;
+      opacity: 0;
+    }
+  }
+  .timer {
+    color: transparent;
+    transition: all 1s ease, opacity 1s, color 0.5s ease, opacity 0.5s ease 0.5s;
+  }
+  &.hide-card-data {
+    transition: all 1s ease, opacity 1s, color 0.5s ease, opacity 0.5s ease 0.5s;
+
+    .timer {
+      transition: all 1s ease, opacity 1s, color 0.5s ease 0.5s,
+        opacity 0.5s ease 0.5s;
+
+      color: #fff;
+      transform: rotateY(180deg);
+    }
+  }
 }
 
 .card::before {
@@ -104,12 +152,4 @@ const props = defineProps({
     --rotate: 360deg;
   }
 }
-
-// a {
-//   color: #212534;
-//   text-decoration: none;
-//   font-family: sans-serif;
-//   font-weight: bold;
-//   margin-top: 2rem;
-// }
 </style>
