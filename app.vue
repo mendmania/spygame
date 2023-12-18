@@ -36,7 +36,7 @@ useHead({
     {
       hid: "og:image",
       property: "og:image",
-      content: "https://virtualboardzone.com/HomeBanner.jpg",
+      content: "https://virtualboardzone.com/HomeBanner.png",
     },
     {
       hid: "og:url",
@@ -46,7 +46,7 @@ useHead({
     {
       hid: "twitter:card",
       name: "twitter:card",
-      content: "https://virtualboardzone.com/HomeBanner.jpg",
+      content: "https://virtualboardzone.com/HomeBanner.png",
     },
     {
       hid: "twitter:title",
@@ -62,7 +62,7 @@ useHead({
     {
       hid: "twitter:image",
       name: "twitter:image",
-      content: "https://virtualboardzone.com/HomeBanner.jpg",
+      content: "https://virtualboardzone.com/HomeBanner.png",
     },
   ],
   // Additional tags for canonical URL, hreflang (if applicable), and schema markup
@@ -73,9 +73,11 @@ onMounted(() => {});
 
 
 <template>
-  <div class="h-full flex flex-col">
+  <div class="flex flex-col">
     <TheHeader />
-    <NuxtPage />
+    <TheBody>
+      <NuxtPage />
+    </TheBody>
     <TheFooter />
   </div>
 </template>

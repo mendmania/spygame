@@ -3,7 +3,7 @@ import { ref } from "vue";
 </script>
 
 <template>
-  <header class="bg-white rounded-lg shadow dark:bg-gray-900 m-4">
+  <header class="bg-white rounded-lg shadow dark:bg-gray-900 my-4">
     <div class="w-full max-w-screen-xl mx-auto p-4 md:py-6">
       <div class="sm:flex sm:items-center sm:justify-between">
         <NuxtLink
@@ -12,20 +12,22 @@ import { ref } from "vue";
         >
           <img
             :src="'/SpyfallIcon.png'"
-            class="h-[64px] w-[64px] "
-            alt="Spyfall Game Logo"
+            class="h-[64px] w-[64px]"
+            alt="Virtual Board Zone Logo"
           />
           <span
             class="self-center text-2xl font-semibold whitespace-nowrap dark:text-white"
-            >Spyfall Game</span
+            >Virtual Board Zone</span
           >
         </NuxtLink>
         <ul
           class="flex flex-wrap items-center my-3 text-sm font-medium text-gray-500 dark:text-gray-400"
         >
           <li>
-            <NuxtLink to="/learn-to-play" class="hover:underline me-4 md:me-6"
-              >Learn To Play</NuxtLink
+            <NuxtLink
+              to="https://spy.virtualboardzone.com"
+              class="hover:underline me-4 md:me-6"
+              >Play Spyfall</NuxtLink
             >
           </li>
           <li>

@@ -2,9 +2,9 @@
 </script>
 
 <template>
-    <body class="spy-body py-8">
-        <slot/>
-    </body>
+  <body class="spy-body container mx-auto">
+    <slot />
+  </body>
 </template>
 
 <style lang="scss">

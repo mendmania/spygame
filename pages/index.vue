@@ -2,60 +2,124 @@
 </script>
 
 <template>
-  <div class="flex flex-col items-center justify-center container m-4">
-    <ArticleHeading :subTitle="'Spyfall Board Game'" />
+  <div>
+    <div
+      class="bg-white border border-gray-200 rounded-lg shadow dark:bg-gray-800 dark:border-gray-700 mb-5"
+    >
+      <!-- max-w-sm -->
+      <NuxtLink to="https://spy.virtualboardzone.com">
+        <img class="rounded-lg" src="/Hero.png" alt="HeroBanner" />
+      </NuxtLink>
+    </div>
+    <article class="format lg:format-lg">
+      <h1 class="text-3xl text-gray font-bold dark:text-gray-200 my-5">
+        Virtual Board Zone: Revolutionizing Online Board Gaming
+      </h1>
+      <ArticleSection
+        title="Introduction"
+        :description="` In an era where
+      digital transformation has touched every aspect of our lives, 'Virtual
+      Board Zone' emerges as a beacon for board game enthusiasts and digital
+      nomads alike. This innovative online platform redefines the traditional
+      board gaming experience, bringing it into the digital realm. At Virtual
+      Board Zone, classic meets contemporary, as users from across the globe
+      connect, compete, and share their passion for board games in a virtual
+      setting.`"
+      />
 
-    <ArticleCard
-      :title="'Setup:'"
-      :description="`Shuffle the Spyfall cards and deal one to each player. Each card reveals a location except for one, which designates the player as the spy.
-    Set a timer for the desired round duration (usually 8 minutes).
-    Decide who starts as the questioner.`"
-    />
-    <ArticleCard
-      :title="'Gameplay:'"
-      :description="`Spyfall is played in rounds, and each round consists of players asking and answering questions to uncover the spy or location. Here's how a typical round progresses:`"
-    />
-    <ArticleCard
-      :title="'Ask Questions:'"
-      :description="`Players take turns asking each other
-    questions about the location. Questions should be open-ended and designed to
-    reveal information about the location without giving it away completely. For
-    example: 'What's the weather like here?' 'What kind of people are around?'
-    'What can you order to eat?'`"
-    />
-    <ArticleCard
-      :title="'Answer Wisely'"
-      :description="`All players, including the spy, must provide answers that match the location while trying not to give away their roles. The spy's goal is to blend in, and the other players aim to identify the spy based on their answers.`"
-    />
-    <ArticleCard
-      :title="'Timer Tension'"
-      :description="`Keep an eye on the timer. When it runs out, players must cast their votes:
+      <ArticleSection
+        title="The Concept Behind Virtual Board Zone"
+        :description="`Virtual Board Zone capitalizes on the growing trend of online gaming,
+        while staying true to the heart and soul of traditional board games. The
+        idea is simple yet profound: to create a virtual space where the
+        timeless charm of board games can be enjoyed anywhere, anytime. This
+        platform isn't just a gaming site; it's a community hub where strategy,
+        fun, and friendship converge.`"
+      />
 
-Non-Spies: Point to the player they suspect is the spy.
-Spy: Attempt to guess the location.`"
-    />
-    <ArticleCard
-      :title="'Reveal and Scoring'"
-      :description="`After the timer expires or if the spy makes a guess, reveal the roles and the location card. Scoring depends on the outcome:
+      <ArticleList
+        title="Features and Benefits"
+        :list="[
+          {
+            title: 'Game Selection:',
+            description: `From classic games like Chess and
+          Checkers to modern favorites like Catan and Ticket to Ride, Virtual
+          Board Zone offers an expansive library of games to suit every taste.`,
+          },
+          {
+            title: 'Global Connectivity:',
+            description: `Play with friends or make new
+          ones. The platform brings together players from different parts of the
+          world, breaking down geographical barriers and creating a global
+          gaming community.`,
+          },
+          {
+            title: 'Intuitive Interface:',
+            description: `Designed for ease of use, the
+          platform caters to both seasoned gamers and newcomers. Its
+          user-friendly interface ensures a seamless gaming experience.`,
+          },
+          {
+            title: 'Real-time Interaction:',
+            description: `With integrated chat and video
+          capabilities, Virtual Board Zone fosters real-time interaction, making
+          each game an engaging social experience.`,
+          },
+        ]"
+      />
 
-If the spy guesses the location, they win.
-If the non-spies correctly identify the spy, they win.
-If the spy goes undetected and cannot guess the location, the spy wins.`"
-    />
-    <ArticleCard
-      :title="'Change Roles'"
-      :description="`Pass the questioner role to the next player and shuffle the cards for a new round. Continue until you decide to end the game.`"
-    />
-    <ArticleCard
-      :title="'Variations'"
-      :description="`Spyfall offers endless entertainment, and you can spice things up with variations such as different time limits, additional spy roles, or house rules to keep the game fresh and exciting.`"
-    />
-    <ArticleCard
-      :title="'Conclusion'"
-      :description="`Spyfall is a thrilling social deduction board game that guarantees laughs, suspense, and unforgettable moments. Whether you're the spy or a non-spy, the key to success lies in mastering the art of deception and deduction. Gather your friends, put on your spy hats, and embark on an unforgettable journey to discover the secrets hidden within Spyfall's diverse locations. Are you up for the challenge?
+      <ArticleSection
+        title="The Future of Board Gaming"
+        :description="`Looking ahead, Virtual Board Zone is poised to be a frontrunner in the
+        evolution of board gaming. As the platform grows, it plans to introduce
+        more games, enhanced features, and even virtual reality (VR)
+        experiences, taking the essence of board gaming to new heights.`"
+      />
 
-Now that you know how to play Spyfall, it's time to put your espionage skills to the test and enjoy countless hours of espionage-themed fun!`"
-    />
+      <ArticleSection
+        title="Conclusion"
+        :description="`Virtual Board Zone is an exciting venture that brings a fresh
+        perspective to the world of online gaming. It provides a unique platform
+        where the joy, strategy, and community of board gaming come alive
+        digitally. Whether you're a hardcore board gamer or just looking for a
+        fun way to connect with others, Virtual Board Zone is your go-to
+        destination. Join the revolution and dive into the exciting world of
+        online board games!`"
+      />
+    </article>
+
+    <div class="grid lg:grid-cols-4 md:grid-cols-2 grid-cols-1">
+      <ArticleCard
+        :title="'Board Game History'"
+        :description="''"
+        :imageSrc="'/Hero.png'"
+        :linkTo="'/boad-game-history'"
+      />
+      <ArticleCard
+        :title="'Board Game History'"
+        :description="''"
+        :imageSrc="'/Hero.png'"
+        :linkTo="'/boad-game-history'"
+      />
+      <ArticleCard
+        :title="'Board Game History'"
+        :description="''"
+        :imageSrc="'/Hero.png'"
+        :linkTo="'/boad-game-history'"
+      />
+      <ArticleCard
+        :title="'Board Game History'"
+        :description="''"
+        :imageSrc="'/Hero.png'"
+        :linkTo="'/boad-game-history'"
+      />
+      <ArticleCard
+        :title="'Board Game History'"
+        :description="''"
+        :imageSrc="'/Hero.png'"
+        :linkTo="'/boad-game-history'"
+      />
+    </div>
   </div>
 </template>
 
