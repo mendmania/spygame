@@ -25,7 +25,7 @@ import { ref } from "vue";
         >
           <li>
             <NuxtLink
-              to="https://spy.virtualboardzone.com"
+              to="https://spyfall.virtualboardzone.com"
               class="hover:underline me-4 md:me-6"
               >Play Spyfall</NuxtLink
             >

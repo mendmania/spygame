@@ -7,7 +7,7 @@
       class="bg-white border border-gray-200 rounded-lg shadow dark:bg-gray-800 dark:border-gray-700 mb-5"
     >
       <!-- max-w-sm -->
-      <NuxtLink to="https://spy.virtualboardzone.com">
+      <NuxtLink to="https://spyfall.virtualboardzone.com">
         <img class="rounded-lg" src="/Hero.png" alt="HeroBanner" />
       </NuxtLink>
     </div>
