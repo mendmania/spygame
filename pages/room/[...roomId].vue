@@ -95,11 +95,11 @@ const gameLocation = () => {
 
 <template>
   <div class="w-full flex flex-col items-center justify-center">
-    <GameCanvas v-if="gameData" :isAdmin="user?.isAdmin" :gameData="gameData" />
-
     <GameInfoCard :text="gameData?.game.roomId" />
 
-    <GameCard :location="user.location" :role="user.role" :canFlipCard="true">
+    <GameCanvas v-if="gameData" :isAdmin="user?.isAdmin" :gameData="gameData" />
+
+    <!-- <GameCard :location="user.location" :role="user.role" :canFlipCard="true">
       <GameTimer
         v-if="gameData?.game.startTime"
         :timestamp="gameData?.game.startTime"
@@ -113,7 +113,7 @@ const gameLocation = () => {
           Unable to determine the location due to insufficient players.
         </span>
       </div>
-    </GameCard>
+    </GameCard> -->
 
     <div class="flex py-10">
       <div v-if="user?.isAdmin">
@@ -150,12 +150,13 @@ const gameLocation = () => {
         </button>
       </div>
     </div>
-
+<!-- 
     <GamePlayersList
       :players="gameData?.game?.players"
       :showSpy="!gameData?.game.startTime"
     />
-    <GameLocationsList />
+    <GameLocationsList /> -->
+
   </div>
 </template>
 
