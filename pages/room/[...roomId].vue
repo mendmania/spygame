@@ -95,6 +95,8 @@ const gameLocation = () => {
 
 <template>
   <div class="w-full flex flex-col items-center justify-center">
+    <GameCanvas v-if="gameData" :isAdmin="user?.isAdmin" :gameData="gameData" />
+
     <GameInfoCard :text="gameData?.game.roomId" />
 
     <GameCard :location="user.location" :role="user.role" :canFlipCard="true">

@@ -3,7 +3,7 @@
 import { ref } from "vue";
 const props = defineProps({
   location: {
-    type: String,
+    type: [String, Number],
     required: false,
     default: "Unknown",
   },

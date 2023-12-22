@@ -22,7 +22,8 @@ export default defineNuxtPlugin((nuxtApp) => {
       storageBucket: config.public.storageBucket,
       messagingSenderId: config.public.messagingSenderId,
       appId: config.public.appId,
-      measurementId: config.public.measurementId
+      measurementId: config.public.measurementId,
+      databaseUrl: config.public.databaseUrl
     };
 
 
@@ -68,6 +69,26 @@ export default defineNuxtPlugin((nuxtApp) => {
       if (!!roomExists) {
         navigateTo(`/room/${roomId}`)
       }
+
+      return true
+
+    }
+
+    const saveDrawing = async (roomId, data) => {
+      const allRooms = await getRooms()
+
+      const roomExists = allRooms[roomId]
+
+      if (!roomExists) return false
+
+      roomExists.game.drawData = data
+
+      if (!!roomExists) {
+        set(ref(database, 'rooms/' + roomId), {
+          game: roomExists.game,
+        });
+      }
+
 
       return true
 
@@ -245,6 +266,7 @@ export default defineNuxtPlugin((nuxtApp) => {
           startStopGameById,
           endGameById,
           removePlayerFromRoomById,
+          saveDrawing,
         }
       }
     }

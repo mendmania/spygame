@@ -24,7 +24,7 @@ export default defineNuxtConfig({
       storageBucket: process.env.NUXT_STORAGE_BUCKET,
       messagingSenderId: process.env.NUXT_MESSAGIN_SENDER_ID,
       appId: process.env.NUXT_APP_ID,
-      measurementId: process.env.NUXT_MEASUREMENT_ID
+      measurementId: process.env.NUXT_MEASUREMENT_ID,
     }
   },
   postcss: {
