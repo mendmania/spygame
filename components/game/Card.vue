@@ -27,7 +27,7 @@ const handleClick = () => {
       class="card flex flex-col"
       :class="showCard ? 'show-card-data' : 'hide-card-data'"
     >
-      <div class="timer text-3xl font-extrabold">SPYFALL</div>
+      <div class="timer text-3xl font-extrabold">Draw</div>
       <div v-if="role != -1 && location != -1">
         <div class="text-sm">
           You are in: <span class="text-xl font-bold">{{ location }}</span>

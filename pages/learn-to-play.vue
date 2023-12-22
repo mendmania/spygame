@@ -3,17 +3,17 @@
 
 <template>
   <div class="flex flex-col items-center justify-center container m-4">
-    <ArticleHeading :subTitle="'Spyfall Board Game'" />
+    <ArticleHeading :subTitle="'Draw Board Game'" />
 
     <ArticleCard
       :title="'Setup:'"
-      :description="`Shuffle the Spyfall cards and deal one to each player. Each card reveals a location except for one, which designates the player as the spy.
+      :description="`Shuffle the Draw cards and deal one to each player. Each card reveals a location except for one, which designates the player as the spy.
     Set a timer for the desired round duration (usually 8 minutes).
     Decide who starts as the questioner.`"
     />
     <ArticleCard
       :title="'Gameplay:'"
-      :description="`Spyfall is played in rounds, and each round consists of players asking and answering questions to uncover the spy or location. Here's how a typical round progresses:`"
+      :description="`Draw is played in rounds, and each round consists of players asking and answering questions to uncover the spy or location. Here's how a typical round progresses:`"
     />
     <ArticleCard
       :title="'Ask Questions:'"
@@ -48,13 +48,13 @@ If the spy goes undetected and cannot guess the location, the spy wins.`"
     />
     <ArticleCard
       :title="'Variations'"
-      :description="`Spyfall offers endless entertainment, and you can spice things up with variations such as different time limits, additional spy roles, or house rules to keep the game fresh and exciting.`"
+      :description="`Draw offers endless entertainment, and you can spice things up with variations such as different time limits, additional spy roles, or house rules to keep the game fresh and exciting.`"
     />
     <ArticleCard
       :title="'Conclusion'"
-      :description="`Spyfall is a thrilling social deduction board game that guarantees laughs, suspense, and unforgettable moments. Whether you're the spy or a non-spy, the key to success lies in mastering the art of deception and deduction. Gather your friends, put on your spy hats, and embark on an unforgettable journey to discover the secrets hidden within Spyfall's diverse locations. Are you up for the challenge?
+      :description="`Draw is a thrilling social deduction board game that guarantees laughs, suspense, and unforgettable moments. Whether you're the spy or a non-spy, the key to success lies in mastering the art of deception and deduction. Gather your friends, put on your spy hats, and embark on an unforgettable journey to discover the secrets hidden within Draw's diverse locations. Are you up for the challenge?
 
-Now that you know how to play Spyfall, it's time to put your espionage skills to the test and enjoy countless hours of espionage-themed fun!`"
+Now that you know how to play Draw, it's time to put your espionage skills to the test and enjoy countless hours of espionage-themed fun!`"
     />
   </div>
 </template>

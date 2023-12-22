@@ -11,13 +11,13 @@ import { ref } from "vue";
           class="flex items-center space-x-3 rtl:space-x-reverse"
         >
           <img
-            :src="'/SpyfallIcon.png'"
+            :src="'/DrawIcon.png'"
             class="h-[64px] w-[64px]"
-            alt="Spyfall Game Logo"
+            alt="Draw Game Logo"
           />
           <span
             class="self-center text-2xl font-semibold whitespace-nowrap dark:text-white"
-            >Spyfall Game</span
+            >Draw Game</span
           >
         </NuxtLink>
         <ul

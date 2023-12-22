@@ -35,7 +35,8 @@ const routeData = ref(currentRoute);
 const roomId = ref(routeData.value.params.roomId[0]);
 
 const canvasRef = ref(null);
-const canvasStartingPx = ref(null);
+const canvasStartingYPosPx = ref(null);
+const canvasStartingXPosPx = ref(null);
 
 onMounted(() => {
   // Drawing with text. Ported from Generative Design book - http://www.generative-gestaltung.de - Original licence: http://www.apache.org/licenses/LICENSE-2.0
@@ -56,8 +57,8 @@ onMounted(() => {
   function init() {
     canvas = document.getElementById("canvas");
     context = canvas.getContext("2d");
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+    canvas.width = window.innerWidth / 2;
+    canvas.height = window.innerHeight / 2;
 
     canvas.addEventListener("mousemove", mouseMove, false);
     canvas.addEventListener("mousedown", mouseDown, false);
@@ -66,11 +67,12 @@ onMounted(() => {
     canvas.addEventListener("dblclick", doubleClick, false);
 
     window.onresize = function (event) {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
+      canvas.width = window.innerWidth / 2;
+      canvas.height = window.innerHeight / 2;
     };
 
-    canvasStartingPx.value = canvasRef.value.getBoundingClientRect().top;
+    canvasStartingYPosPx.value = canvasRef.value.getBoundingClientRect().top;
+    canvasStartingXPosPx.value = canvasRef.value.getBoundingClientRect().left;
   }
 
   function mouseMove(event) {
@@ -81,10 +83,10 @@ onMounted(() => {
 
   function draw() {
     if (mouse.down) {
-      console.log(canvasStartingPx.value);
+      console.log(canvasStartingYPosPx.value);
 
-      var positionX = position.x;
-      var positionY = position.y - canvasStartingPx.value;
+      var positionX = position.x - canvasStartingXPosPx.value;
+      var positionY = position.y - canvasStartingYPosPx.value;
 
       position.x = mouse.x;
       position.y = mouse.y;
@@ -92,7 +94,10 @@ onMounted(() => {
       if (positionX !== null && positionY !== null) {
         context.beginPath();
         context.moveTo(positionX, positionY);
-        context.lineTo(position.x, position.y - canvasStartingPx.value);
+        context.lineTo(
+          position.x - canvasStartingXPosPx.value,
+          position.y - canvasStartingYPosPx.value
+        );
         context.stroke();
       }
     }
@@ -157,9 +162,8 @@ onMounted(() => {
   const doubleClick = async (event) => {
     canvas.width = canvas.width;
 
-  const roomResponse = await firebase.value.saveDrawing(roomId.value, 'meni');
-
-  }
+    const roomResponse = await firebase.value.saveDrawing(roomId.value, "meni");
+  };
 
   function textWidth(string, size) {
     context.font = size + "px Georgia";
