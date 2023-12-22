@@ -154,8 +154,11 @@ onMounted(() => {
     saveDrawData();
   }
 
-  function doubleClick(event) {
+  const doubleClick = async (event) => {
     canvas.width = canvas.width;
+
+  const roomResponse = await firebase.value.saveDrawing(roomId.value, 'meni');
+
   }
 
   function textWidth(string, size) {
