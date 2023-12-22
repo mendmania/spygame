@@ -43,7 +43,11 @@ useHead({
       property: "og:image",
       content: "https://https://spyfall.virtualboardzone.com/SpyfallBanner.jpg",
     },
-    { hid: "og:url", property: "og:url", content: "https://spyfall.virtualboardzone.com" },
+    {
+      hid: "og:url",
+      property: "og:url",
+      content: "https://spyfall.virtualboardzone.com",
+    },
     {
       hid: "twitter:card",
       name: "twitter:card",
@@ -93,6 +97,8 @@ onMounted(() => {
   <div class="h-full flex flex-col">
     <TheHeader />
     <NuxtPage />
+    <div class="flex flex-grow"></div>
+
     <TheFooter />
   </div>
 </template>

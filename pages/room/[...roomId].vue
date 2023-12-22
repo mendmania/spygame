@@ -150,12 +150,12 @@ const gameLocation = () => {
         </button>
       </div>
     </div>
-<!-- 
+
     <GamePlayersList
       :players="gameData?.game?.players"
       :showSpy="!gameData?.game.startTime"
     />
-    <GameLocationsList /> -->
+    <!-- <GameLocationsList /> -->
 
   </div>
 </template>

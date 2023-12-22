@@ -5,7 +5,5 @@
     <Landing />
 </template>
 
-
-
 <style>
 </style>

@@ -132,7 +132,8 @@ const onUsernameInput = ($e) => {
         </button>
       </div>
     </div>
-    <GameLocationsList />
+    <div class="flex flex-grow"></div>
+    <!-- <GameLocationsList /> -->
   </div>
 </template>
   
