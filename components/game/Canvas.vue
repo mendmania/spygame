@@ -98,8 +98,7 @@ onMounted(() => {
   }
 
   function mouseMove(event) {
-    event.preventDefault();
-    event.stopPropagation();
+
     console.log(event.pageX)
     mouse.x = event.pageX;
     mouse.y = event.pageY;
@@ -171,6 +170,8 @@ onMounted(() => {
   }
 
   function mouseDown(event) {
+    event.preventDefault();
+    event.stopPropagation();
     console.log(event)
     mouse.down = true;
     position.x = event.pageX;
