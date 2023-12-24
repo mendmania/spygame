@@ -171,7 +171,7 @@ body {
   position: fixed;
   z-index: 12;
   background: red;
-  canvas {
+  canvas, img {
     height: 50vh;
     width: 100vw;
   }

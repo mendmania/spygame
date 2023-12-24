@@ -38,7 +38,7 @@ const canvasRef = ref(null);
 const canvasStartingYPosPx = ref(null);
 const canvasStartingXPosPx = ref(null);
 
-const canvas = ref(null);
+// const canvas = ref(null);
 const drawiong = ref(false);
 const lastX = ref(0);
 const lastY = ref(0);
@@ -62,7 +62,7 @@ onMounted(() => {
   function init() {
     canvas = document.getElementById("canvas");
     context = canvas.getContext("2d");
-    console.log(window.innerWidth, window.innerHeight)
+    console.log(window.innerWidth, window.innerHeight);
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight / 2;
 
@@ -77,7 +77,7 @@ onMounted(() => {
     canvas.addEventListener(
       "touchmove",
       function (e) {
-        console.log(e.touches[0].pageX)
+        console.log(e.touches[0].pageX);
         var touch = e.touches[0];
         var mouseEvent = new MouseEvent("mousemove", {
           clientX: touch.clientX,
@@ -98,19 +98,18 @@ onMounted(() => {
   }
 
   function mouseMove(event) {
-
-    console.log(event.pageX)
+    console.log(event.pageX);
     mouse.x = event.pageX;
     mouse.y = event.pageY;
     draw();
   }
 
   function draw() {
-    console.log(mouse.down)
+    console.log(mouse.down);
     if (mouse.down) {
       console.log(canvasStartingYPosPx.value);
 
-      var positionX = position.x
+      var positionX = position.x;
       var positionY = position.y - canvasStartingYPosPx.value;
 
       position.x = mouse.x;
@@ -119,10 +118,7 @@ onMounted(() => {
       if (positionX !== null && positionY !== null) {
         context.beginPath();
         context.moveTo(positionX, positionY);
-        context.lineTo(
-          position.x,
-          position.y - canvasStartingYPosPx.value
-        );
+        context.lineTo(position.x, position.y - canvasStartingYPosPx.value);
         context.stroke();
       }
     }
@@ -166,13 +162,13 @@ onMounted(() => {
     ys = pt2.y - pt.y;
     ys = ys * ys;
 
-    return Math.sqrt(xs + ys); 
+    return Math.sqrt(xs + ys);
   }
 
   function mouseDown(event) {
     event.preventDefault();
     event.stopPropagation();
-    console.log(event)
+    console.log(event);
     mouse.down = true;
     position.x = event.pageX;
     position.y = event.pageY;
@@ -189,8 +185,12 @@ onMounted(() => {
 
   const doubleClick = async (event) => {
     canvas.width = canvas.width;
+    let dataURL = canvas.toDataURL();
 
-    const roomResponse = await firebase.value.saveDrawing(roomId.value, "meni");
+    const roomResponse = await firebase.value.saveDrawing(
+      roomId.value,
+      dataURL
+    );
   };
 
   function textWidth(string, size) {
@@ -245,11 +245,7 @@ const saveDrawData = async () => {
 
 <template>
   <div class="game-canvas bg-white">
-    <canvas
-      v-show="isAdmin"
-      ref="canvasRef"
-      id="canvas"
-    ></canvas>
+    <canvas v-show="isAdmin" ref="canvasRef" id="canvas"></canvas>
 
     <!-- <canvas
       ref="canvas"
