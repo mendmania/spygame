@@ -94,7 +94,7 @@ const gameLocation = () => {
 </script>
 
 <template>
-  <div class="w-full flex flex-col items-center justify-center">
+  <div class="draw-room w-full flex flex-col items-center justify-center">
     <GameInfoCard :text="gameData?.game.roomId" />
 
     <GameCanvas v-if="gameData" :isAdmin="user?.isAdmin" :gameData="gameData" />
@@ -156,11 +156,19 @@ const gameLocation = () => {
       :showSpy="!gameData?.game.startTime"
     />
     <!-- <GameLocationsList /> -->
-
   </div>
 </template>
 
 
 
-<style>
+<style lang="scss">
+.draw-room {
+  position: fixed;
+  z-index: 12;
+  background: red;
+  canvas {
+    height: 50vh;
+    width: 100vw;
+  }
+}
 </style>

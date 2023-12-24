@@ -38,11 +38,16 @@ const canvasRef = ref(null);
 const canvasStartingYPosPx = ref(null);
 const canvasStartingXPosPx = ref(null);
 
+const canvas = ref(null);
+const drawiong = ref(false);
+const lastX = ref(0);
+const lastY = ref(0);
+
 onMounted(() => {
   // Drawing with text. Ported from Generative Design book - http://www.generative-gestaltung.de - Original licence: http://www.apache.org/licenses/LICENSE-2.0
 
   // Application variables
-  var position = { x: 0, y: window.innerHeight / 2 };
+  var position = { x: 0, y: window.innerHeight };
   var counter = 0;
   var minFontSize = 3;
   var angleDistortion = 0;
@@ -57,18 +62,35 @@ onMounted(() => {
   function init() {
     canvas = document.getElementById("canvas");
     context = canvas.getContext("2d");
-    canvas.width = window.innerWidth / 2;
+    console.log(window.innerWidth, window.innerHeight)
+    canvas.width = window.innerWidth;
     canvas.height = window.innerHeight / 2;
 
     canvas.addEventListener("mousemove", mouseMove, false);
     canvas.addEventListener("mousedown", mouseDown, false);
+    canvas.addEventListener("touchstart", mouseDown, false);
+    canvas.addEventListener("touchend", mouseUp, false);
     canvas.addEventListener("mouseup", mouseUp, false);
     canvas.addEventListener("mouseout", mouseUp, false);
     canvas.addEventListener("dblclick", doubleClick, false);
 
+    canvas.addEventListener(
+      "touchmove",
+      function (e) {
+        console.log(e.touches[0].pageX)
+        var touch = e.touches[0];
+        var mouseEvent = new MouseEvent("mousemove", {
+          clientX: touch.clientX,
+          clientY: touch.clientY,
+        });
+        canvas.dispatchEvent(mouseEvent);
+      },
+      false
+    );
+
     window.onresize = function (event) {
-      canvas.width = window.innerWidth / 2;
-      canvas.height = window.innerHeight / 2;
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
     };
 
     canvasStartingYPosPx.value = canvasRef.value.getBoundingClientRect().top;
@@ -76,16 +98,20 @@ onMounted(() => {
   }
 
   function mouseMove(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    console.log(event.pageX)
     mouse.x = event.pageX;
     mouse.y = event.pageY;
     draw();
   }
 
   function draw() {
+    console.log(mouse.down)
     if (mouse.down) {
       console.log(canvasStartingYPosPx.value);
 
-      var positionX = position.x - canvasStartingXPosPx.value;
+      var positionX = position.x
       var positionY = position.y - canvasStartingYPosPx.value;
 
       position.x = mouse.x;
@@ -95,7 +121,7 @@ onMounted(() => {
         context.beginPath();
         context.moveTo(positionX, positionY);
         context.lineTo(
-          position.x - canvasStartingXPosPx.value,
+          position.x,
           position.y - canvasStartingYPosPx.value
         );
         context.stroke();
@@ -141,10 +167,11 @@ onMounted(() => {
     ys = pt2.y - pt.y;
     ys = ys * ys;
 
-    return Math.sqrt(xs + ys);
+    return Math.sqrt(xs + ys); 
   }
 
   function mouseDown(event) {
+    console.log(event)
     mouse.down = true;
     position.x = event.pageX;
     position.y = event.pageY;
@@ -176,6 +203,36 @@ onMounted(() => {
   }
 
   init();
+
+  // const startDrawing = (e) => {
+  //   console.log(e);
+  //   drawing.value = true;
+  //   [lastX.value, lastY.value] = getCursorPosition(e);
+  // };
+
+  // const draww = (e) => {
+  //   console.log(e);
+  //   if (!drawing.value) return;
+
+  //   const [x, y] = getCursorPosition(e);
+
+  //   context.value.beginPath();
+  //   context.value.moveTo(lastX.value, lastY.value);
+  //   context.value.lineTo(x, y);
+  //   context.value.stroke();
+
+  //   [lastX.value, lastY.value] = [x, y];
+  // };
+  // const endDrawing = () => {
+  //   drawing.value = false;
+  // };
+  // const getCursorPosition = (e) => {
+  //   const rect = canvas.value.getBoundingClientRect();
+  //   const touch = e.touches ? e.touches[0] : e;
+  //   const x = touch.clientX - rect.left;
+  //   const y = touch.clientY - rect.top;
+  //   return [x, y];
+  // };
 });
 
 const saveDrawData = async () => {
@@ -187,7 +244,22 @@ const saveDrawData = async () => {
 
 <template>
   <div class="game-canvas bg-white">
-    <canvas v-show="isAdmin" ref="canvasRef" id="canvas"></canvas>
+    <canvas
+      v-show="isAdmin"
+      ref="canvasRef"
+      id="canvas"
+    ></canvas>
+
+    <!-- <canvas
+      ref="canvas"
+      @touchstart="startDrawing"
+      @touchmove="draww"
+      @touchend="endDrawing"
+      @mousedown="startDrawing"
+      @mousemove="draww"
+      @mouseup="endDrawing"
+      @mouseleave="endDrawing"
+    ></canvas> -->
     <img v-show="!isAdmin" :src="gameData.game.drawData" />
   </div>
 </template>
