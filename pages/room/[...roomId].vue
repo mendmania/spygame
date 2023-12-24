@@ -162,6 +162,11 @@ const gameLocation = () => {
 
 
 <style lang="scss">
+html,
+body {
+  overflow-x: hidden;
+  overflow-y: hidden;
+}
 .draw-room {
   position: fixed;
   z-index: 12;
