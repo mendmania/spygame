@@ -113,8 +113,7 @@ onMounted(() => {
     canvasStartingYPosPx.value = canvasRef.value.getBoundingClientRect().top;
     canvasStartingXPosPx.value = canvasRef.value.getBoundingClientRect().left;
 
-    // console.log(props.gameData.game.drawData);
-    // context.putImageData(props.gameData.game.drawData, 0, 0);
+    loadDrawingOnCanvas(props.gameData.game.drawData);
   }
 
   function mouseMove(event) {
@@ -202,7 +201,6 @@ onMounted(() => {
   function mouseUp(event) {
     mouse.down = false;
 
-    console.log("mouseUp");
     saveDrawData();
   }
 
@@ -211,15 +209,15 @@ onMounted(() => {
     clearCanvas();
   };
 
-  function textWidth(string, size) {
-    context.font = size + "px Georgia";
+  // function textWidth(string, size) {
+  //   context.font = size + "px Georgia";
 
-    if (context.fillText) {
-      return context.measureText(string).width;
-    } else if (context.mozDrawText) {
-      return context.mozMeasureText(string);
-    }
-  }
+  //   if (context.fillText) {
+  //     return context.measureText(string).width;
+  //   } else if (context.mozDrawText) {
+  //     return context.mozMeasureText(string);
+  //   }
+  // }
 
   init();
 });
@@ -228,20 +226,22 @@ const clearCanvas = async () => {
   canvas.width = canvas.width;
   let dataURL = canvas.toDataURL();
   const roomResponse = await firebase.value.saveDrawing(roomId.value, dataURL);
+
+  emptyUndoQueue();
+};
+
+const emptyUndoQueue = () => {
+  history.value = [];
 };
 
 const saveDrawData = async () => {
-  console.log("saving");
   const dataURL = canvas.toDataURL();
 
   history.value.push(dataURL);
   const roomResponse = await firebase.value.saveDrawing(roomId.value, dataURL);
-
-  console.log(history.value.length);
 };
 
 const undoDrawing = () => {
-  const ctx = canvas.getContext("2d");
   const [lastS] = history.value;
   console.log(history.value.length);
   console.log(lastS);
@@ -249,15 +249,37 @@ const undoDrawing = () => {
 
   if (history.value.length > 0) {
     let lastState = history.value[history.value.length - 1];
-    let img = new Image();
-    img.src = lastState;
-    console.log(lastState);
+    loadDrawingOnCanvas(lastState);
+    // let img = new Image();
+    // img.src = lastState;
+    // console.log(lastState);
 
-    img.onload = function () {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-    };
+    // img.onload = function () {
+    //   ctx.clearRect(0, 0, canvas.width, canvas.height);
+    //   ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    // };
+  } else if (history.value.length === 0) {
+    clearCanvas();
+  } else {
+    emptyUndoQueue();
   }
+};
+
+const loadDrawingOnCanvas = (data) => {
+  const ctx = canvas.getContext("2d");
+
+  let img = new Image();
+  img.src = data;
+  console.log(data);
+
+  img.onload = function () {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+  };
+
+  const dataURL = canvas.toDataURL();
+
+  const roomResponse = firebase.value.saveDrawing(roomId.value, dataURL);
 };
 </script>
 
