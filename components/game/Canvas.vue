@@ -1,6 +1,7 @@
 
 <script setup>
 import { ref } from "vue";
+import { getHeightBasedOnWidth } from "~/utils/getHeightBasedOnWidth";
 
 import useFirebase from "~/composables/useFirebase";
 
@@ -35,8 +36,10 @@ const routeData = ref(currentRoute);
 const roomId = ref(routeData.value.params.roomId[0]);
 
 const canvasRef = ref(null);
+const imgRef = ref(null);
 const canvasStartingYPosPx = ref(null);
 const canvasStartingXPosPx = ref(null);
+const history = ref([]);
 
 // const canvas = ref(null);
 const drawiong = ref(false);
@@ -59,19 +62,30 @@ onMounted(() => {
   var context;
   var mouse = { x: 0, y: 0, down: false };
 
+  const setCanvasDimensions = () => {
+    const width = document.querySelector(".game-canvas").clientWidth;
+    const height = getHeightBasedOnWidth(width);
+    console.log(window.innerWidth, window.innerHeight);
+    console.log(width);
+    console.log(height);
+
+    imgRef.value.style.width = `${width}px`;
+    imgRef.value.style.height = `${height}px`;
+    canvas.width = width;
+    canvas.height = height;
+  };
+
   function init() {
     canvas = document.getElementById("canvas");
     context = canvas.getContext("2d");
-    console.log(window.innerWidth, window.innerHeight);
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight / 2;
+    setCanvasDimensions();
 
     canvas.addEventListener("mousemove", mouseMove, false);
     canvas.addEventListener("mousedown", mouseDown, false);
     canvas.addEventListener("touchstart", mouseDown, false);
     canvas.addEventListener("touchend", mouseUp, false);
     canvas.addEventListener("mouseup", mouseUp, false);
-    canvas.addEventListener("mouseout", mouseUp, false);
+    // canvas.addEventListener("mouseout", mouseUp, false);
     canvas.addEventListener("dblclick", doubleClick, false);
 
     canvas.addEventListener(
@@ -89,12 +103,18 @@ onMounted(() => {
     );
 
     window.onresize = function (event) {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
+      console.log(window.innerWidth);
+      setCanvasDimensions();
+
+      // canvas.width = window.innerWidth;
+      // canvas.height = window.innerHeight;
     };
 
     canvasStartingYPosPx.value = canvasRef.value.getBoundingClientRect().top;
     canvasStartingXPosPx.value = canvasRef.value.getBoundingClientRect().left;
+
+    // console.log(props.gameData.game.drawData);
+    // context.putImageData(props.gameData.game.drawData, 0, 0);
   }
 
   function mouseMove(event) {
@@ -109,7 +129,7 @@ onMounted(() => {
     if (mouse.down) {
       console.log(canvasStartingYPosPx.value);
 
-      var positionX = position.x;
+      var positionX = position.x - canvasStartingXPosPx.value;
       var positionY = position.y - canvasStartingYPosPx.value;
 
       position.x = mouse.x;
@@ -118,7 +138,10 @@ onMounted(() => {
       if (positionX !== null && positionY !== null) {
         context.beginPath();
         context.moveTo(positionX, positionY);
-        context.lineTo(position.x, position.y - canvasStartingYPosPx.value);
+        context.lineTo(
+          position.x - canvasStartingXPosPx.value,
+          position.y - canvasStartingYPosPx.value
+        );
         context.stroke();
       }
     }
@@ -184,13 +207,8 @@ onMounted(() => {
   }
 
   const doubleClick = async (event) => {
-    canvas.width = canvas.width;
-    let dataURL = canvas.toDataURL();
-
-    const roomResponse = await firebase.value.saveDrawing(
-      roomId.value,
-      dataURL
-    );
+    console.log("clear");
+    clearCanvas();
   };
 
   function textWidth(string, size) {
@@ -204,60 +222,79 @@ onMounted(() => {
   }
 
   init();
-
-  // const startDrawing = (e) => {
-  //   console.log(e);
-  //   drawing.value = true;
-  //   [lastX.value, lastY.value] = getCursorPosition(e);
-  // };
-
-  // const draww = (e) => {
-  //   console.log(e);
-  //   if (!drawing.value) return;
-
-  //   const [x, y] = getCursorPosition(e);
-
-  //   context.value.beginPath();
-  //   context.value.moveTo(lastX.value, lastY.value);
-  //   context.value.lineTo(x, y);
-  //   context.value.stroke();
-
-  //   [lastX.value, lastY.value] = [x, y];
-  // };
-  // const endDrawing = () => {
-  //   drawing.value = false;
-  // };
-  // const getCursorPosition = (e) => {
-  //   const rect = canvas.value.getBoundingClientRect();
-  //   const touch = e.touches ? e.touches[0] : e;
-  //   const x = touch.clientX - rect.left;
-  //   const y = touch.clientY - rect.top;
-  //   return [x, y];
-  // };
 });
 
-const saveDrawData = async () => {
-  var dataURL = canvas.toDataURL();
-
+const clearCanvas = async () => {
+  canvas.width = canvas.width;
+  let dataURL = canvas.toDataURL();
   const roomResponse = await firebase.value.saveDrawing(roomId.value, dataURL);
+};
+
+const saveDrawData = async () => {
+  console.log("saving");
+  const dataURL = canvas.toDataURL();
+
+  history.value.push(dataURL);
+  const roomResponse = await firebase.value.saveDrawing(roomId.value, dataURL);
+
+  console.log(history.value.length);
+};
+
+const undoDrawing = () => {
+  const ctx = canvas.getContext("2d");
+  const [lastS] = history.value;
+  console.log(history.value.length);
+  console.log(lastS);
+  history.value.pop(); // Remove the current state
+
+  if (history.value.length > 0) {
+    let lastState = history.value[history.value.length - 1];
+    let img = new Image();
+    img.src = lastState;
+    console.log(lastState);
+
+    img.onload = function () {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    };
+  }
 };
 </script>
 
 <template>
-  <div class="game-canvas bg-white">
-    <canvas v-show="isAdmin" ref="canvasRef" id="canvas"></canvas>
+  <div class="game-canvas bg-blue-800 container max-w-[800px] w-full">
+    <GameInfoCard :text="gameData?.game.roomId" :clearCanvas="clearCanvas">
+      <template #left>
+        <button
+          class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded mx-2"
+          @click="undoDrawing"
+        >
+          Undo
+        </button>
+      </template>
+      <template #right>
+        <button
+          class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded mx-2"
+          @click="clearCanvas"
+        >
+          Clear
+        </button>
+      </template>
+    </GameInfoCard>
 
-    <!-- <canvas
-      ref="canvas"
-      @touchstart="startDrawing"
-      @touchmove="draww"
-      @touchend="endDrawing"
-      @mousedown="startDrawing"
-      @mousemove="draww"
-      @mouseup="endDrawing"
-      @mouseleave="endDrawing"
-    ></canvas> -->
-    <img v-show="!isAdmin" :src="gameData.game.drawData" />
+    <canvas
+      v-show="isAdmin"
+      ref="canvasRef"
+      id="canvas"
+      class="bg-white"
+    ></canvas>
+
+    <img
+      v-show="!isAdmin"
+      ref="imgRef"
+      class="w-full h-full bg-white"
+      :src="gameData.game.drawData"
+    />
   </div>
 </template>
 

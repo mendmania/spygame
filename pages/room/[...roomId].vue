@@ -94,8 +94,7 @@ const gameLocation = () => {
 </script>
 
 <template>
-  <div class="draw-room w-full flex flex-col items-center justify-center">
-    <GameInfoCard :text="gameData?.game.roomId" />
+  <div class="draw-room w-full flex flex-col items-center justify-start">
 
     <GameCanvas v-if="gameData" :isAdmin="user?.isAdmin" :gameData="gameData" />
 
@@ -169,11 +168,9 @@ body {
 }
 .draw-room {
   position: fixed;
+  bottom: 0;
+  top: 0;
   z-index: 12;
   background: red;
-  canvas, img {
-    height: 50vh;
-    width: 100vw;
-  }
 }
 </style>
