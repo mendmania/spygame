@@ -95,7 +95,6 @@ const gameLocation = () => {
 
 <template>
   <div class="draw-room w-full flex flex-col items-center justify-start">
-
     <GameCanvas v-if="gameData" :isAdmin="user?.isAdmin" :gameData="gameData" />
 
     <!-- <GameCard :location="user.location" :role="user.role" :canFlipCard="true">
@@ -166,6 +165,11 @@ body {
   overflow-x: hidden;
   overflow-y: hidden;
 }
+
+* {
+  touch-action: manipulation;
+}
+
 .draw-room {
   position: fixed;
   bottom: 0;
