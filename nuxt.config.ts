@@ -14,7 +14,11 @@ export default defineNuxtConfig({
   },
   modules: [
     '@pinia/nuxt',
+    'nuxt-gtag',
   ],
+  gtag: {
+    id: 'G-NZBHYKXKY2'
+  },
   runtimeConfig: {
     public: {
     }
