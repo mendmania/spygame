@@ -3,13 +3,20 @@ export default defineNuxtConfig({
   devtools: { enabled: true },
   css: ['~/assets/css/main.css'],
   plugins: [
-    { src: '~/plugins/firebase', mode: 'client' }
+    { src: '~/plugins/firebase', mode: 'client' },
+    { src: "~/plugins/gtag", mode: "client" },
   ],
   app: {
     head: {
       charset: 'utf-8',
       meta: [
         { name: 'viewport', content: 'width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover' },
+      ],
+      script: [
+        {
+          src: "https://www.googletagmanager.com/gtag/js?id=G-97ZE2FX3BX",
+          async: true,
+        },
       ],
     }
   },
