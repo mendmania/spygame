@@ -1,0 +1,477 @@
+.container {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(135deg, #0a0a0f 0%, #1a1a2e 50%, #16213e 100%);
+}
+
+/* Header */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.backLink {
+  color: #88d5bf;
+  font-size: 0.875rem;
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.backLink:hover {
+  color: #58c7fa;
+}
+
+.roomCode {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.roomLabel {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.1rem;
+}
+
+.roomId {
+  font-size: 1.5rem;
+  font-weight: bold;
+  letter-spacing: 0.3rem;
+  color: #58c7fa;
+}
+
+.headerSpacer {
+  width: 80px; /* Balance the back link */
+}
+
+/* Main Content */
+.main {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  padding: 1.5rem;
+}
+
+/* Game Layout - Three columns */
+.gameLayout {
+  display: grid;
+  grid-template-columns: 280px 1fr 320px;
+  gap: 2rem;
+  width: 100%;
+  max-width: 1400px;
+  align-items: start;
+}
+
+.leftPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  position: sticky;
+  top: 1.5rem;
+}
+
+.centerPanel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2rem;
+  padding-top: 1rem;
+}
+
+.rightPanel {
+  position: sticky;
+  top: 1.5rem;
+}
+
+/* Demo Toggle */
+.demoToggle {
+  background: rgba(255, 165, 0, 0.1);
+  border: 1px dashed rgba(255, 165, 0, 0.3);
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+}
+
+.toggleLabel {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  color: #ffa94d;
+  cursor: pointer;
+}
+
+.toggleLabel input {
+  accent-color: #ffa94d;
+}
+
+/* Lobby Styles */
+.lobby {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+}
+
+.lobbyCard {
+  background: rgba(25, 28, 41, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 1rem;
+  padding: 2rem;
+  max-width: 400px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.lobbyTitle {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #fff;
+  margin: 0;
+}
+
+.lobbySubtitle {
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.6);
+  margin: 0;
+}
+
+.lobbyRoomCode {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: rgba(88, 199, 250, 0.1);
+  border: 1px solid rgba(88, 199, 250, 0.3);
+  border-radius: 0.75rem;
+  padding: 1rem 2rem;
+}
+
+.codeLabel {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.1rem;
+}
+
+.codeValue {
+  font-size: 2.5rem;
+  font-weight: bold;
+  letter-spacing: 0.5rem;
+  color: #58c7fa;
+}
+
+.startButton {
+  width: 100%;
+  padding: 1rem;
+  background: linear-gradient(135deg, #58c7fa, #3c67e3);
+  border: none;
+  border-radius: 0.75rem;
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.startButton:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 20px rgba(88, 199, 250, 0.4);
+}
+
+.minPlayers {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.4);
+  margin: 0;
+}
+
+/* Spectator View */
+.spectatorInfo {
+  background: rgba(88, 199, 250, 0.1);
+  border: 1px solid rgba(88, 199, 250, 0.3);
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin: 1.5rem 0;
+  text-align: center;
+}
+
+.spectatorInfo p {
+  margin: 0.5rem 0;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.spectatorInfo strong {
+  color: #58c7fa;
+}
+
+.spectatorStatus {
+  margin-top: 1rem !important;
+  color: #88d5bf !important;
+}
+
+/* Mobile Locations */
+.mobileLocations {
+  display: none;
+  padding: 1rem;
+}
+
+/* Responsive Design */
+@media (max-width: 1200px) {
+  .gameLayout {
+    grid-template-columns: 260px 1fr;
+  }
+  
+  .rightPanel {
+    display: none;
+  }
+  
+  .mobileLocations {
+    display: block;
+  }
+}
+
+@media (max-width: 768px) {
+  .gameLayout {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+  
+  .leftPanel {
+    position: static;
+    order: 2;
+  }
+  
+  .centerPanel {
+    order: 1;
+  }
+  
+  .header {
+    padding: 0.75rem 1rem;
+  }
+  
+  .roomId {
+    font-size: 1.25rem;
+  }
+  
+  .headerSpacer {
+    display: none;
+  }
+}
+
+/* Loading State */
+.loadingState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  gap: 1rem;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid rgba(88, 199, 250, 0.3);
+  border-top-color: #58c7fa;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Error State */
+.errorState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  gap: 1rem;
+  text-align: center;
+  padding: 2rem;
+}
+
+.errorState h2 {
+  font-size: 1.5rem;
+  color: #ff6b6b;
+  margin: 0;
+}
+
+.errorState p {
+  color: rgba(255, 255, 255, 0.6);
+  margin: 0;
+}
+
+.errorLink {
+  color: #58c7fa;
+  text-decoration: none;
+  padding: 0.75rem 1.5rem;
+  border: 1px solid #58c7fa;
+  border-radius: 0.5rem;
+  transition: background 0.2s ease;
+}
+
+.errorLink:hover {
+  background: rgba(88, 199, 250, 0.1);
+}
+
+.errorSubtext {
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.4);
+  margin: 0;
+}
+
+/* Player Name Editing */
+.playerName {
+  display: flex;
+  align-items: center;
+}
+
+.nameDisplay {
+  background: none;
+  border: none;
+  color: #88d5bf;
+  font-size: 0.875rem;
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  transition: background 0.2s ease;
+}
+
+.nameDisplay:hover {
+  background: rgba(136, 213, 191, 0.1);
+}
+
+.nameForm {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.nameInput {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(88, 199, 250, 0.5);
+  border-radius: 0.25rem;
+  color: #fff;
+  font-size: 0.875rem;
+  padding: 0.25rem 0.5rem;
+  width: 120px;
+}
+
+.nameInput:focus {
+  outline: none;
+  border-color: #58c7fa;
+}
+
+.nameSaveBtn {
+  background: #58c7fa;
+  border: none;
+  border-radius: 0.25rem;
+  color: #fff;
+  padding: 0.25rem 0.5rem;
+  cursor: pointer;
+  font-size: 0.875rem;
+}
+
+/* Start Button Disabled */
+.startButtonDisabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: linear-gradient(135deg, #666, #444);
+}
+
+.startButtonDisabled:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+/* Waiting for Host */
+.waitingForHost {
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.6);
+  margin: 0;
+  font-style: italic;
+}
+
+/* Game End Banner */
+.gameEndBanner {
+  background: linear-gradient(135deg, rgba(255, 107, 107, 0.2), rgba(255, 165, 0, 0.2));
+  border: 1px solid rgba(255, 107, 107, 0.4);
+  border-radius: 0.75rem;
+  padding: 1.5rem 2rem;
+  text-align: center;
+  margin-bottom: 1rem;
+}
+
+.gameEndBanner h2 {
+  font-size: 1.5rem;
+  color: #ff6b6b;
+  margin: 0 0 0.5rem 0;
+}
+
+.gameEndBanner p {
+  font-size: 1rem;
+  color: rgba(255, 255, 255, 0.8);
+  margin: 0;
+}
+
+.gameEndBanner strong {
+  color: #ffa94d;
+}
+
+/* End Game Button */
+.endGameButton {
+  width: 100%;
+  padding: 0.75rem;
+  background: rgba(255, 107, 107, 0.2);
+  border: 1px solid rgba(255, 107, 107, 0.4);
+  border-radius: 0.5rem;
+  color: #ff6b6b;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.endGameButton:hover {
+  background: rgba(255, 107, 107, 0.3);
+}
+
+/* Reset/Play Again Button */
+.resetButton {
+  width: 100%;
+  padding: 0.75rem;
+  background: linear-gradient(135deg, #58c7fa, #3c67e3);
+  border: none;
+  border-radius: 0.5rem;
+  color: #fff;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.resetButton:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 10px rgba(88, 199, 250, 0.3);
+}
+
+/* Error message in lobby */
+.errorMessage {
+  font-size: 0.875rem;
+  color: #ff6b6b;
+  margin: 0;
+  padding: 0.5rem;
+  background: rgba(255, 107, 107, 0.1);
+  border-radius: 0.25rem;
+}

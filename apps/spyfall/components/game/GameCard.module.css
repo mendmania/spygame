@@ -1,0 +1,238 @@
+.gameCard {
+  perspective: 1000px;
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.card {
+  position: relative;
+  width: 300px;
+  height: 500px;
+  transition: transform 0.8s ease;
+  transform-style: preserve-3d;
+}
+
+.card.showCardData {
+  transform: rotateY(180deg);
+}
+
+/* Card faces - shared styles */
+.cardFront,
+.cardBack {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  background: #191c29;
+  border-radius: 1rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 2rem;
+  text-align: center;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+/* Front face */
+.cardFront {
+  color: #88d5bf;
+}
+
+/* Back face - rotated 180deg so it shows when card flips */
+.cardBack {
+  color: #58c7fa;
+  transform: rotateY(180deg);
+}
+
+/* Animated gradient border - applied to front face */
+.cardFront::before {
+  content: '';
+  width: calc(100% + 6px);
+  height: calc(100% + 6px);
+  border-radius: 1rem;
+  background-image: linear-gradient(
+    var(--rotate),
+    #5ddcff,
+    #3c67e3 43%,
+    #4e00c2
+  );
+  position: absolute;
+  z-index: -1;
+  top: -3px;
+  left: -3px;
+  animation: spin 2.5s linear infinite;
+}
+
+.cardFront::after {
+  position: absolute;
+  content: '';
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: -1;
+  height: 100%;
+  width: 100%;
+  margin: 0 auto;
+  filter: blur(45px);
+  background-image: linear-gradient(
+    var(--rotate),
+    #5ddcff,
+    #3c67e3 43%,
+    #4e00c2
+  );
+  opacity: 0.7;
+  transition: opacity 0.5s;
+  animation: spin 2.5s linear infinite;
+}
+
+/* Animated gradient border - applied to back face */
+.cardBack::before {
+  content: '';
+  width: calc(100% + 6px);
+  height: calc(100% + 6px);
+  border-radius: 1rem;
+  background-image: linear-gradient(
+    var(--rotate),
+    #5ddcff,
+    #3c67e3 43%,
+    #4e00c2
+  );
+  position: absolute;
+  z-index: -1;
+  top: -3px;
+  left: -3px;
+  animation: spin 2.5s linear infinite;
+}
+
+.cardBack::after {
+  position: absolute;
+  content: '';
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: -1;
+  height: 100%;
+  width: 100%;
+  margin: 0 auto;
+  filter: blur(45px);
+  background-image: linear-gradient(
+    var(--rotate),
+    #5ddcff,
+    #3c67e3 43%,
+    #4e00c2
+  );
+  opacity: 0.7;
+  transition: opacity 0.5s;
+  animation: spin 2.5s linear infinite;
+}
+
+@property --rotate {
+  syntax: '<angle>';
+  initial-value: 132deg;
+  inherits: false;
+}
+
+@keyframes spin {
+  0% {
+    --rotate: 0deg;
+  }
+  100% {
+    --rotate: 360deg;
+  }
+}
+
+.hiddenContent {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+.title {
+  font-size: 2.5rem;
+  font-weight: bold;
+  letter-spacing: 0.5rem;
+  margin: 0;
+}
+
+.tapHint {
+  margin-top: 1rem;
+  font-size: 0.875rem;
+  opacity: 0.7;
+}
+
+/* Location/Role content */
+.locationSection,
+.roleSection {
+  margin-bottom: 1.5rem;
+}
+
+.label {
+  font-size: 0.75rem;
+  letter-spacing: 0.2rem;
+  opacity: 0.7;
+  text-transform: uppercase;
+}
+
+.location {
+  font-size: 2rem;
+  font-weight: bold;
+  margin: 0.5rem 0 0 0;
+  color: #58c7fa;
+}
+
+.role {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin: 0.5rem 0 0 0;
+  color: #88d5bf;
+}
+
+/* Spy content */
+.spyContent {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.spyIcon {
+  font-size: 4rem;
+}
+
+.spyTitle {
+  font-size: 1.75rem;
+  font-weight: bold;
+  color: #ff6b6b;
+  margin: 0;
+}
+
+.spyHint {
+  font-size: 1rem;
+  opacity: 0.8;
+  color: #ffa94d;
+  margin: 0;
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .card {
+    width: 260px;
+    height: 420px;
+  }
+  
+  .title {
+    font-size: 2rem;
+  }
+  
+  .location {
+    font-size: 1.5rem;
+  }
+  
+  .role {
+    font-size: 1.25rem;
+  }
+}

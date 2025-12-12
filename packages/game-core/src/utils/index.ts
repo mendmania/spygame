@@ -1,0 +1,1 @@
+export { generateRoomId } from './generateRoomId';

@@ -1,0 +1,44 @@
+import type { Metadata } from 'next';
+import { Inter } from 'next/font/google';
+import './globals.css';
+
+const inter = Inter({ subsets: ['latin'] });
+
+export const metadata: Metadata = {
+  title: 'Virtual Board Zone - Online Party Games',
+  description: 'Play Spyfall, Codenames, and more with friends online. No downloads required.',
+};
+
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <html lang="en" className="dark">
+      <body className={inter.className}>
+        <div className="min-h-screen flex flex-col">
+          <header className="border-b border-gray-800 px-6 py-4">
+            <div className="max-w-6xl mx-auto flex items-center justify-between">
+              <h1 className="text-xl font-bold">Virtual Board Zone</h1>
+              <nav className="flex gap-6">
+                <a href="#games" className="text-gray-400 hover:text-white transition-colors">
+                  Games
+                </a>
+                <a href="#about" className="text-gray-400 hover:text-white transition-colors">
+                  About
+                </a>
+              </nav>
+            </div>
+          </header>
+          <main className="flex-1">{children}</main>
+          <footer className="border-t border-gray-800 px-6 py-8">
+            <div className="max-w-6xl mx-auto text-center text-gray-500 text-sm">
+              © 2024 Virtual Board Zone. Play games with friends online.
+            </div>
+          </footer>
+        </div>
+      </body>
+    </html>
+  );
+}

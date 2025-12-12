@@ -1,0 +1,54 @@
+{
+  "rules": {
+    "games": {
+      "spyfall": {
+        "rooms": {
+          "$roomId": {
+            // Anyone authenticated can read public room data
+            ".read": "auth != null",
+            
+            "meta": {
+              // Only room creator or existing players can write meta
+              ".write": "auth != null && (
+                !data.exists() || 
+                data.child('createdBy').val() === auth.uid ||
+                root.child('games/spyfall/rooms/' + $roomId + '/players/' + auth.uid).exists()
+              )"
+            },
+            
+            "state": {
+              // Only server (admin) can write game state
+              // For client-side, only host can trigger via server action
+              ".write": "auth != null && 
+                        root.child('games/spyfall/rooms/' + $roomId + '/players/' + auth.uid + '/isHost').val() === true"
+            },
+            
+            "players": {
+              "$playerId": {
+                // Players can only write their own data
+                ".write": "auth != null && auth.uid === $playerId",
+                
+                // Validate player data structure
+                ".validate": "newData.hasChildren(['displayName', 'isHost', 'joinedAt']) &&
+                              newData.child('displayName').isString() &&
+                              newData.child('displayName').val().length > 0 &&
+                              newData.child('displayName').val().length <= 20 &&
+                              newData.child('isHost').isBoolean() &&
+                              newData.child('joinedAt').isNumber()"
+              }
+            },
+            
+            "privatePlayerData": {
+              // CRITICAL: Players can ONLY read their own private data
+              "$playerId": {
+                ".read": "auth != null && auth.uid === $playerId",
+                // Only server (admin) can write private player data
+                ".write": false
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

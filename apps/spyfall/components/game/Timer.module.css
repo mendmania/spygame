@@ -1,0 +1,59 @@
+.timer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 1rem 2rem;
+  background: rgba(25, 28, 41, 0.8);
+  border-radius: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.timerIcon {
+  font-size: 1.5rem;
+}
+
+.timerValue {
+  font-size: 2.5rem;
+  font-weight: bold;
+  font-family: monospace;
+  color: #88d5bf;
+  letter-spacing: 0.1rem;
+}
+
+.timer.lowTime .timerValue {
+  color: #ffa94d;
+  animation: pulse 1s ease-in-out infinite;
+}
+
+.timer.expired .timerValue {
+  color: #ff6b6b;
+  animation: none;
+}
+
+.expiredText {
+  font-size: 0.875rem;
+  color: #ff6b6b;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1rem;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
+@media (max-width: 640px) {
+  .timer {
+    padding: 0.75rem 1.5rem;
+  }
+  
+  .timerValue {
+    font-size: 2rem;
+  }
+}

@@ -1,29 +1,21 @@
 {
-  "name": "nuxt-app",
+  "name": "virtualboardzone",
   "private": true,
-  "type": "module",
   "scripts": {
-    "build": "nuxt build",
-    "dev": "nuxt dev",
-    "generate": "nuxt generate",
-    "preview": "nuxt preview",
-    "postinstall": "nuxt prepare",
-    "runws": "node websocket-server.js"
+    "dev": "turbo dev",
+    "dev:hub": "turbo dev --filter=@vbz/hub",
+    "dev:spyfall": "turbo dev --filter=@vbz/spyfall",
+    "build": "turbo build",
+    "lint": "turbo lint",
+    "clean": "turbo clean",
+    "type-check": "turbo type-check"
   },
   "devDependencies": {
-    "@nuxt/devtools": "latest",
-    "autoprefixer": "^10.4.16",
-    "nuxt": "^3.8.2",
-    "postcss": "^8.4.32",
-    "sass": "^1.69.5",
-    "tailwindcss": "^3.3.6",
-    "vue": "^3.3.10",
-    "vue-router": "^4.2.5"
+    "turbo": "^2.3.3",
+    "typescript": "^5.3.3"
   },
-  "dependencies": {
-    "@pinia/nuxt": "^0.5.1",
-    "firebase": "^10.7.1",
-    "pinia": "^2.1.7",
-    "ws": "^8.14.2"
+  "packageManager": "pnpm@8.15.0",
+  "engines": {
+    "node": ">=18"
   }
 }
