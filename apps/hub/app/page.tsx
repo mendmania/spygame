@@ -1,6 +1,6 @@
 import { Card, CardHeader, CardContent } from '@vbz/ui';
 
-const SPYFALL_URL = process.env.NEXT_PUBLIC_SPYFALL_URL || '/spyfall';
+const SPYFALL_URL = process.env.NEXT_PUBLIC_SPYFALL_URL || 'https://spyfall.virtualboardzone.com';
 
 const GAMES = [
   {
