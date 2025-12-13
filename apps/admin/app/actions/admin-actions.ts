@@ -6,6 +6,8 @@ import type {
   AdminAnalytics,
   AdminRoomSummary,
   AdminDashboardData,
+  AdminRoomDetail,
+  AdminPlayerInfo,
   GameType,
 } from '@/types';
 
@@ -22,11 +24,11 @@ async function requireAdmin(idToken: string): Promise<{ uid: string; email: stri
 export async function getDashboardData(idToken: string): Promise<AdminDashboardData> {
   await requireAdmin(idToken);
 
-  const db = getAdminDbRef('adminIndex');
+  const db = await getAdminDbRef('adminIndex');
 
   // Get analytics
   const analyticsSnapshot = await db.child('analytics').once('value');
-  const analytics: AdminAnalytics = analyticsSnapshot.val() || {
+  let analytics: AdminAnalytics = analyticsSnapshot.val() || {
     activeRooms: 0,
     activePlayers: 0,
     roomsCreatedToday: 0,
@@ -40,15 +42,17 @@ export async function getDashboardData(idToken: string): Promise<AdminDashboardD
     analytics.lastResetDate = today;
   }
 
-  // Get all rooms from all games
-  const roomsSnapshot = await db.child('rooms').once('value');
-  const roomsData = roomsSnapshot.val() || {};
-
   const rooms: AdminDashboardData['rooms'] = [];
 
-  for (const game of Object.keys(roomsData) as GameType[]) {
-    const gameRooms = roomsData[game] || {};
+  // First, check the admin index for indexed rooms
+  const roomsSnapshot = await db.child('rooms').once('value');
+  const indexedRoomsData = roomsSnapshot.val() || {};
+  const indexedRoomIds = new Set<string>();
+
+  for (const game of Object.keys(indexedRoomsData) as GameType[]) {
+    const gameRooms = indexedRoomsData[game] || {};
     for (const roomId of Object.keys(gameRooms)) {
+      indexedRoomIds.add(`${game}/${roomId}`);
       rooms.push({
         game,
         roomId,
@@ -57,10 +61,117 @@ export async function getDashboardData(idToken: string): Promise<AdminDashboardD
     }
   }
 
+  // Also scan actual spyfall rooms that might not be indexed yet
+  const spyfallRoomsRef = await getAdminDbRef('games/spyfall/rooms');
+  const spyfallRoomsSnapshot = await spyfallRoomsRef.once('value');
+  const spyfallRoomsData = spyfallRoomsSnapshot.val() || {};
+
+  let activeRooms = 0;
+  let activePlayers = 0;
+
+  for (const roomId of Object.keys(spyfallRoomsData)) {
+    const room = spyfallRoomsData[roomId];
+    if (!room) continue;
+
+    const players = room.players || {};
+    const playerCount = Object.keys(players).length;
+    const status = room.state?.status || 'waiting';
+    const isActive = status === 'waiting' || status === 'playing';
+
+    if (isActive) {
+      activeRooms++;
+      activePlayers += playerCount;
+    }
+
+    // Only add if not already indexed
+    if (!indexedRoomIds.has(`spyfall/${roomId}`)) {
+      // Get host info
+      const hostId = room.state?.hostId || Object.keys(players)[0];
+      const hostPlayer = players[hostId];
+      const hostName = hostPlayer?.displayName || 'Unknown';
+
+      rooms.push({
+        game: 'spyfall',
+        roomId,
+        summary: {
+          status: status as AdminRoomSummary['status'],
+          playerCount,
+          createdAt: room.state?.createdAt || Date.now(),
+          lastActiveAt: room.state?.lastActiveAt || room.state?.createdAt || Date.now(),
+          hostName,
+          hostId: hostId || '',
+        },
+      });
+    }
+  }
+
+  // Update analytics with actual counts
+  analytics = {
+    ...analytics,
+    activeRooms,
+    activePlayers,
+  };
+
   // Sort by lastActiveAt descending
   rooms.sort((a, b) => b.summary.lastActiveAt - a.summary.lastActiveAt);
 
   return { analytics, rooms };
+}
+
+// Get detailed room info including players and roles
+export async function getRoomDetails(
+  idToken: string,
+  game: GameType,
+  roomId: string
+): Promise<AdminRoomDetail | null> {
+  await requireAdmin(idToken);
+
+  const roomRef = await getAdminDbRef(`games/${game}/rooms/${roomId}`);
+  const snapshot = await roomRef.once('value');
+
+  if (!snapshot.exists()) {
+    return null;
+  }
+
+  const room = snapshot.val();
+  const state = room.state || {};
+  const playersData = room.players || {};
+  const hostId = state.hostId || Object.keys(playersData)[0] || '';
+
+  // Build player list with roles
+  const players: AdminPlayerInfo[] = Object.entries(playersData).map(([id, player]: [string, any]) => {
+    const isSpy = state.spyId === id;
+    
+    return {
+      id,
+      displayName: player.displayName || 'Unknown',
+      isHost: id === hostId,
+      isSpy,
+      role: isSpy ? '🕵️ SPY' : (state.location ? `📍 ${state.location}` : undefined),
+      location: isSpy ? undefined : state.location,
+      joinedAt: player.joinedAt,
+    };
+  });
+
+  // Sort: host first, then by name
+  players.sort((a, b) => {
+    if (a.isHost) return -1;
+    if (b.isHost) return 1;
+    return a.displayName.localeCompare(b.displayName);
+  });
+
+  return {
+    roomId,
+    game,
+    status: state.status || 'waiting',
+    players,
+    location: state.location,
+    spyId: state.spyId,
+    createdAt: state.createdAt || Date.now(),
+    startedAt: state.startedAt,
+    timerDuration: state.timerDuration,
+    hostId,
+  };
 }
 
 // Get rooms filtered by game
@@ -70,7 +181,7 @@ export async function getRoomsByGame(
 ): Promise<{ roomId: string; summary: AdminRoomSummary }[]> {
   await requireAdmin(idToken);
 
-  const roomsRef = getAdminDbRef(`adminIndex/rooms/${game}`);
+  const roomsRef = await getAdminDbRef(`adminIndex/rooms/${game}`);
   const snapshot = await roomsRef.once('value');
   const roomsData = snapshot.val() || {};
 
@@ -95,7 +206,7 @@ export async function closeRoom(
     const admin = await requireAdmin(idToken);
 
     // Update room status in adminIndex
-    const indexRef = getAdminDbRef(`adminIndex/rooms/${game}/${roomId}`);
+    const indexRef = await getAdminDbRef(`adminIndex/rooms/${game}/${roomId}`);
     const indexSnapshot = await indexRef.once('value');
 
     if (!indexSnapshot.exists()) {
@@ -105,7 +216,7 @@ export async function closeRoom(
     const currentSummary = indexSnapshot.val() as AdminRoomSummary;
 
     // Update the actual game room state
-    const gameRoomRef = getAdminDbRef(`games/${game}/rooms/${roomId}`);
+    const gameRoomRef = await getAdminDbRef(`games/${game}/rooms/${roomId}`);
     const gameRoomSnapshot = await gameRoomRef.once('value');
 
     if (gameRoomSnapshot.exists()) {
@@ -126,7 +237,7 @@ export async function closeRoom(
 
     // Decrement active counters if room was active
     if (currentSummary.status === 'waiting' || currentSummary.status === 'playing') {
-      const analyticsRef = getAdminDbRef('adminIndex/analytics');
+      const analyticsRef = await getAdminDbRef('adminIndex/analytics');
       const analyticsSnapshot = await analyticsRef.once('value');
       const analytics = analyticsSnapshot.val() || {};
 
@@ -157,7 +268,7 @@ export async function endGameForRoom(
     const admin = await requireAdmin(idToken);
 
     // Update room status in adminIndex
-    const indexRef = getAdminDbRef(`adminIndex/rooms/${game}/${roomId}`);
+    const indexRef = await getAdminDbRef(`adminIndex/rooms/${game}/${roomId}`);
     const indexSnapshot = await indexRef.once('value');
 
     if (!indexSnapshot.exists()) {
@@ -171,7 +282,7 @@ export async function endGameForRoom(
     }
 
     // Update the actual game room state
-    const gameRoomRef = getAdminDbRef(`games/${game}/rooms/${roomId}`);
+    const gameRoomRef = await getAdminDbRef(`games/${game}/rooms/${roomId}`);
     const gameRoomSnapshot = await gameRoomRef.once('value');
 
     if (gameRoomSnapshot.exists()) {
@@ -209,26 +320,32 @@ export async function deleteRoom(
   try {
     const admin = await requireAdmin(idToken);
 
-    // Get current room info for analytics update
-    const indexRef = getAdminDbRef(`adminIndex/rooms/${game}/${roomId}`);
+    // Check if room exists in admin index (optional)
+    const indexRef = await getAdminDbRef(`adminIndex/rooms/${game}/${roomId}`);
     const indexSnapshot = await indexRef.once('value');
-
-    if (!indexSnapshot.exists()) {
-      return { success: false, message: 'Room not found in index' };
-    }
-
-    const currentSummary = indexSnapshot.val() as AdminRoomSummary;
+    const currentSummary = indexSnapshot.exists() ? indexSnapshot.val() as AdminRoomSummary : null;
 
     // Delete the actual game room
-    const gameRoomRef = getAdminDbRef(`games/${game}/rooms/${roomId}`);
-    await gameRoomRef.remove();
+    const gameRoomRef = await getAdminDbRef(`games/${game}/rooms/${roomId}`);
+    const gameRoomSnapshot = await gameRoomRef.once('value');
+    
+    if (!gameRoomSnapshot.exists() && !indexSnapshot.exists()) {
+      return { success: false, message: 'Room not found' };
+    }
 
-    // Delete from index
-    await indexRef.remove();
+    // Delete the game room if it exists
+    if (gameRoomSnapshot.exists()) {
+      await gameRoomRef.remove();
+    }
+
+    // Delete from index if it exists
+    if (indexSnapshot.exists()) {
+      await indexRef.remove();
+    }
 
     // Update analytics if room was active
-    if (currentSummary.status === 'waiting' || currentSummary.status === 'playing') {
-      const analyticsRef = getAdminDbRef('adminIndex/analytics');
+    if (currentSummary && (currentSummary.status === 'waiting' || currentSummary.status === 'playing')) {
+      const analyticsRef = await getAdminDbRef('adminIndex/analytics');
       const analyticsSnapshot = await analyticsRef.once('value');
       const analytics = analyticsSnapshot.val() || {};
 
@@ -259,7 +376,7 @@ export async function addAdminUser(
   try {
     await requireAdmin(idToken);
 
-    const adminRef = getAdminDbRef(`adminUsers/${targetUid}`);
+    const adminRef = await getAdminDbRef(`adminUsers/${targetUid}`);
     await adminRef.set(true);
 
     return { success: true, message: `User ${targetUid} added as admin` };
@@ -286,7 +403,7 @@ export async function removeAdminUser(
       return { success: false, message: 'Cannot remove yourself from admin' };
     }
 
-    const adminRef = getAdminDbRef(`adminUsers/${targetUid}`);
+    const adminRef = await getAdminDbRef(`adminUsers/${targetUid}`);
     await adminRef.remove();
 
     return { success: true, message: `User ${targetUid} removed from admin` };

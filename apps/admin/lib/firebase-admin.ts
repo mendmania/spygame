@@ -1,8 +1,17 @@
+/**
+ * Firebase Admin SDK initialization and utilities
+ * 
+ * This module is server-only and provides utilities for Firebase Admin SDK.
+ * It does NOT use 'use server' directive - it's imported by server action files.
+ */
+
 import { initializeApp, getApps, cert, App } from 'firebase-admin/app';
-import { getAuth } from 'firebase-admin/auth';
-import { getDatabase } from 'firebase-admin/database';
+import { getAuth, Auth } from 'firebase-admin/auth';
+import { getDatabase, Database } from 'firebase-admin/database';
 
 let adminApp: App | null = null;
+let adminAuth: Auth | null = null;
+let adminDb: Database | null = null;
 
 function getAdminApp(): App {
   if (adminApp) {
@@ -35,15 +44,21 @@ function getAdminApp(): App {
   return adminApp;
 }
 
-export function getAdminAuth() {
-  return getAuth(getAdminApp());
+function getAdminAuth(): Auth {
+  if (adminAuth) return adminAuth;
+  adminAuth = getAuth(getAdminApp());
+  return adminAuth;
 }
 
-export function getAdminDatabase() {
-  return getDatabase(getAdminApp());
+function getAdminDatabase(): Database {
+  if (adminDb) return adminDb;
+  adminDb = getDatabase(getAdminApp());
+  return adminDb;
 }
 
-// Verify if a user is an admin by checking the allowlist in RTDB
+/**
+ * Verify if a user is an admin by checking the allowlist in RTDB
+ */
 export async function verifyAdminUser(idToken: string): Promise<{
   isAdmin: boolean;
   uid: string | null;
@@ -82,7 +97,9 @@ export async function verifyAdminUser(idToken: string): Promise<{
   }
 }
 
-// Get admin database reference helper
-export function getAdminDbRef(path: string) {
+/**
+ * Get a database reference for admin operations
+ */
+export async function getAdminDbRef(path: string) {
   return getAdminDatabase().ref(path);
 }

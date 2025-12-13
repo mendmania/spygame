@@ -113,10 +113,10 @@ export function useAdminAuth() {
     }
   };
 
-  // Get current ID token for API calls
-  const getToken = async (): Promise<string | null> => {
+  // Get current ID token for API calls - stable reference with useCallback
+  const getToken = useCallback(async (): Promise<string | null> => {
     return getIdToken();
-  };
+  }, []);
 
   return {
     ...state,

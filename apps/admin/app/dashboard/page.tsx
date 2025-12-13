@@ -1,15 +1,16 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
 import {
   getDashboardData,
+  getRoomDetails,
   closeRoom,
   endGameForRoom,
   deleteRoom,
 } from '@/app/actions/admin-actions';
-import type { AdminDashboardData, GameType } from '@/types';
+import type { AdminDashboardData, AdminRoomDetail, GameType } from '@/types';
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -19,6 +20,9 @@ export default function DashboardPage() {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | GameType>('all');
+  const [selectedRoom, setSelectedRoom] = useState<AdminRoomDetail | null>(null);
+  const [loadingRoom, setLoadingRoom] = useState(false);
+  const dataLoadedRef = useRef(false);
 
   // Load dashboard data
   const loadData = useCallback(async () => {
@@ -41,10 +45,28 @@ export default function DashboardPage() {
       router.push('/');
     } else if (!isLoading && user && !isAdmin) {
       router.push('/');
-    } else if (!isLoading && isAdmin) {
+    } else if (!isLoading && isAdmin && !dataLoadedRef.current) {
+      dataLoadedRef.current = true;
       loadData();
     }
   }, [isLoading, user, isAdmin, router, loadData]);
+
+  // Handle view room details
+  const handleViewRoom = async (game: GameType, roomId: string) => {
+    setLoadingRoom(true);
+    try {
+      const token = await getToken();
+      if (!token) throw new Error('Not authenticated');
+
+      const details = await getRoomDetails(token, game, roomId);
+      setSelectedRoom(details);
+    } catch (err) {
+      console.error('Failed to load room details:', err);
+      setActionError(err instanceof Error ? err.message : 'Failed to load room details');
+    } finally {
+      setLoadingRoom(false);
+    }
+  };
 
   // Handle close room
   const handleCloseRoom = async (game: GameType, roomId: string) => {
@@ -303,6 +325,12 @@ export default function DashboardPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right">
                       <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => handleViewRoom(game, roomId)}
+                          className="px-3 py-1 bg-blue-600 hover:bg-blue-700 rounded text-xs transition-colors"
+                        >
+                          View
+                        </button>
                         {summary.status === 'playing' && (
                           <button
                             onClick={() => handleEndGame(game, roomId)}
@@ -336,6 +364,119 @@ export default function DashboardPage() {
             </tbody>
           </table>
         </div>
+
+        {/* Room Details Modal */}
+        {(selectedRoom || loadingRoom) && (
+          <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+            <div className="bg-gray-900 rounded-lg border border-gray-700 max-w-2xl w-full max-h-[80vh] overflow-hidden">
+              {loadingRoom ? (
+                <div className="p-8 text-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500 mx-auto mb-4"></div>
+                  <p className="text-gray-400">Loading room details...</p>
+                </div>
+              ) : selectedRoom ? (
+                <>
+                  {/* Modal Header */}
+                  <div className="px-6 py-4 border-b border-gray-700 flex items-center justify-between">
+                    <div>
+                      <h3 className="text-lg font-semibold">Room: {selectedRoom.roomId}</h3>
+                      <p className="text-sm text-gray-400 capitalize">{selectedRoom.game}</p>
+                    </div>
+                    <button
+                      onClick={() => setSelectedRoom(null)}
+                      className="text-gray-400 hover:text-white text-2xl leading-none"
+                    >
+                      ×
+                    </button>
+                  </div>
+
+                  {/* Modal Body */}
+                  <div className="p-6 overflow-y-auto max-h-[60vh]">
+                    {/* Room Info */}
+                    <div className="grid grid-cols-2 gap-4 mb-6">
+                      <div>
+                        <span className="text-gray-400 text-sm">Status</span>
+                        <p className={`font-medium ${
+                          selectedRoom.status === 'playing' ? 'text-green-400' :
+                          selectedRoom.status === 'waiting' ? 'text-yellow-400' :
+                          'text-gray-400'
+                        }`}>
+                          {selectedRoom.status.toUpperCase()}
+                        </p>
+                      </div>
+                      {selectedRoom.location && (
+                        <div>
+                          <span className="text-gray-400 text-sm">Location</span>
+                          <p className="font-medium text-blue-400">📍 {selectedRoom.location}</p>
+                        </div>
+                      )}
+                      <div>
+                        <span className="text-gray-400 text-sm">Created</span>
+                        <p className="font-medium">{new Date(selectedRoom.createdAt).toLocaleString()}</p>
+                      </div>
+                      {selectedRoom.startedAt && (
+                        <div>
+                          <span className="text-gray-400 text-sm">Started</span>
+                          <p className="font-medium">{new Date(selectedRoom.startedAt).toLocaleString()}</p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Players List */}
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-400 mb-3">
+                        Players ({selectedRoom.players.length})
+                      </h4>
+                      <div className="space-y-2">
+                        {selectedRoom.players.map((player) => (
+                          <div
+                            key={player.id}
+                            className={`p-3 rounded-lg border ${
+                              player.isSpy 
+                                ? 'bg-red-900/30 border-red-700' 
+                                : 'bg-gray-800 border-gray-700'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium">{player.displayName}</span>
+                                {player.isHost && (
+                                  <span className="px-2 py-0.5 bg-purple-600/30 text-purple-400 text-xs rounded">
+                                    HOST
+                                  </span>
+                                )}
+                              </div>
+                              {player.role && (
+                                <span className={`text-sm ${
+                                  player.isSpy ? 'text-red-400 font-bold' : 'text-gray-400'
+                                }`}>
+                                  {player.role}
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-xs text-gray-500 mt-1 font-mono">
+                              ID: {player.id}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Modal Footer */}
+                  <div className="px-6 py-4 border-t border-gray-700 flex justify-end">
+                    <button
+                      onClick={() => setSelectedRoom(null)}
+                      className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm transition-colors"
+                    >
+                      Close
+                    </button>
+                  </div>
+                </>
+              ) : null}
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );

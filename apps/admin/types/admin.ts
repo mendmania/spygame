@@ -22,15 +22,29 @@ export interface AdminAnalytics {
   lastResetDate: string; // YYYY-MM-DD
 }
 
-// Full room data for admin view
-export interface AdminRoomDetail extends AdminRoomSummary {
+// Player info for admin view
+export interface AdminPlayerInfo {
+  id: string;
+  displayName: string;
+  isHost: boolean;
+  isSpy?: boolean;
+  role?: string;
+  location?: string;
+  joinedAt?: number;
+}
+
+// Full room detail for admin view
+export interface AdminRoomDetail {
   roomId: string;
   game: GameType;
-  players: {
-    id: string;
-    name: string;
-    isHost: boolean;
-  }[];
+  status: RoomStatus;
+  players: AdminPlayerInfo[];
+  location?: string; // Current game location (for spyfall)
+  spyId?: string; // Who is the spy (for spyfall)
+  createdAt: number;
+  startedAt?: number;
+  timerDuration?: number;
+  hostId: string;
 }
 
 // Admin user session
