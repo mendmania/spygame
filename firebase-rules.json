@@ -1,0 +1,92 @@
+{
+  "rules": {
+    // Admin index - only readable by admins (server-side only in practice)
+    // Write access only via server (admin SDK bypasses rules)
+    "adminIndex": {
+      ".read": false,
+      ".write": false,
+      "rooms": {
+        "$game": {
+          "$roomId": {
+            ".read": false,
+            ".write": false
+          }
+        }
+      },
+      "analytics": {
+        ".read": false,
+        ".write": false
+      }
+    },
+    
+    // Admin users allowlist - never readable/writable from client
+    "adminUsers": {
+      ".read": false,
+      ".write": false
+    },
+    
+    // Games data
+    "games": {
+      "spyfall": {
+        "rooms": {
+          "$roomId": {
+            // Meta: anyone can read, only server can write status
+            "meta": {
+              ".read": true,
+              // Allow initial creation (status = waiting)
+              ".write": "!data.exists() || auth != null",
+              "status": {
+                // Status changes only from server (admin SDK)
+                ".write": false
+              }
+            },
+            
+            // Players: anyone can read, authenticated users can write their own data
+            "players": {
+              ".read": true,
+              "$playerId": {
+                // Players can write their own data
+                ".write": "auth != null && auth.uid == $playerId",
+                // But cannot change isHost (server-controlled)
+                "isHost": {
+                  ".write": false
+                }
+              }
+            },
+            
+            // Game state: anyone can read (for UI), only server can write
+            "state": {
+              ".read": true,
+              ".write": false
+            },
+            
+            // Private player data: players can only read their own
+            "privatePlayerData": {
+              ".read": false,
+              "$playerId": {
+                ".read": "auth != null && auth.uid == $playerId",
+                ".write": false
+              }
+            }
+          }
+        }
+      },
+      
+      // Future games follow same pattern
+      "codenames": {
+        ".read": false,
+        ".write": false
+      },
+      "werewolf": {
+        ".read": false,
+        ".write": false
+      }
+    },
+    
+    // Default deny all
+    "$other": {
+      ".read": false,
+      ".write": false
+    }
+  }
+}

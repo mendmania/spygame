@@ -5,6 +5,7 @@
     "dev": "turbo dev",
     "dev:hub": "turbo dev --filter=@vbz/hub",
     "dev:spyfall": "turbo dev --filter=@vbz/spyfall",
+    "dev:admin": "turbo dev --filter=admin",
     "build": "turbo build",
     "lint": "turbo lint",
     "clean": "turbo clean",
