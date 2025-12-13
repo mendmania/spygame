@@ -1,0 +1,1320 @@
+'use server';
+
+/**
+ * Werewolf Game Server Actions
+ * 
+ * These actions run on the server with elevated permissions.
+ * They handle all game state mutations securely.
+ * 
+ * Server-authoritative logic for:
+ * - Role assignment
+ * - Night actions (all swaps and peeks)
+ * - Phase transitions
+ * - Vote counting and winner determination
+ * 
+ * EXTENDING WITH NEW ROLES:
+ * 1. Add role to types and constants
+ * 2. Add to NIGHT_ACTION_ORDER in correct position
+ * 3. Add handler in executeNightAction()
+ * 4. Add any special win conditions in determineWinner()
+ */
+
+import { getAdminDatabase } from '@/lib/firebase-admin';
+import {
+  ROOMS_BASE,
+  DEFAULT_DISCUSSION_TIME,
+  DEFAULT_VOTING_TIME,
+  MIN_PLAYERS,
+  MAX_PLAYERS,
+  CENTER_CARD_COUNT,
+} from '@/constants';
+import { NIGHT_ACTION_ORDER, DEFAULT_ROLE_SETS } from '@/constants/roles';
+import type {
+  WerewolfActionResult,
+  WerewolfRoomData,
+  WerewolfPlayer,
+  WerewolfRole,
+  WerewolfCenterCards,
+  WerewolfGameState,
+  WerewolfGameResult,
+  WerewolfNightAction,
+  WerewolfNightActionResult,
+  NightActionType,
+  WerewolfPrivatePlayerData,
+  PerformNightActionRequest,
+  CastVoteRequest,
+} from '@vbz/shared-types';
+
+/**
+ * Shuffle array using Fisher-Yates algorithm
+ */
+function shuffleArray<T>(array: T[]): T[] {
+  const shuffled = [...array];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+}
+
+/**
+ * Start a new game
+ * 
+ * Server-authoritative game start:
+ * 1. Validates the requesting player is the host
+ * 2. Validates player count (3-10)
+ * 3. Randomly assigns roles to players and center cards
+ * 4. Initializes game state
+ * 5. Transitions to night phase
+ * 
+ * RACE CONDITION PROTECTION:
+ * Uses Firebase transaction to ensure only ONE startGame succeeds
+ * even if multiple tabs/clients click simultaneously.
+ */
+export async function startGame(
+  roomId: string,
+  playerId: string
+): Promise<WerewolfActionResult> {
+  try {
+    const db = getAdminDatabase();
+    const roomRef = db.ref(`${ROOMS_BASE}/${roomId}`);
+    
+    // Read room data first to validate
+    const snapshot = await roomRef.once('value');
+    const roomData = snapshot.val() as WerewolfRoomData | null;
+    
+    if (!roomData) {
+      return { success: false, error: 'Room not found' };
+    }
+    
+    if (!roomData.meta) {
+      return { success: false, error: 'Room data is corrupted (missing meta)' };
+    }
+    
+    // Validate status
+    if (roomData.meta.status !== 'waiting') {
+      return { success: false, error: `Cannot start: game is currently "${roomData.meta.status}"` };
+    }
+    
+    const players = roomData.players || {};
+    const requestingPlayer = players[playerId];
+    
+    if (!requestingPlayer) {
+      return { success: false, error: 'You are not in this room' };
+    }
+    
+    if (!requestingPlayer.isHost) {
+      return { success: false, error: 'Only the host can start the game' };
+    }
+    
+    const playerIds = Object.keys(players);
+    const playerCount = playerIds.length;
+    
+    if (playerCount < MIN_PLAYERS) {
+      return { success: false, error: `Need at least ${MIN_PLAYERS} players (currently ${playerCount})` };
+    }
+    
+    if (playerCount > MAX_PLAYERS) {
+      return { success: false, error: `Maximum ${MAX_PLAYERS} players allowed (currently ${playerCount})` };
+    }
+    
+    // Use transaction ONLY to atomically update status from 'waiting' to 'night'
+    // This prevents race conditions where two clicks start the game simultaneously
+    let transactionError: string | null = null;
+    let transactionCommitted = false;
+    
+    await roomRef.child('meta/status').transaction((currentStatus) => {
+      if (currentStatus === 'waiting') {
+        transactionCommitted = true;
+        return 'night';
+      } else if (currentStatus === null) {
+        // Admin SDK may pass null initially - return 'night' to set it
+        // The actual current value will be checked on server
+        transactionCommitted = true;
+        return 'night';
+      } else {
+        transactionError = `Cannot start: game is currently "${currentStatus}"`;
+        return; // Abort
+      }
+    });
+    
+    if (transactionError || !transactionCommitted) {
+      return { success: false, error: transactionError || 'Failed to start game (status conflict)' };
+    }
+
+    // Transaction succeeded - we now have exclusive lock on the game start
+    // Perform the actual game setup using the roomData we read earlier
+    // (players/host/count already validated above)
+
+    // Get roles from selectedRoles (host configuration) or fall back to defaults
+    const selectedRoles = roomData.meta.selectedRoles;
+    const requiredRoleCount = playerCount + CENTER_CARD_COUNT;
+    
+    let rolesForGame: WerewolfRole[];
+    
+    if (selectedRoles && selectedRoles.length === requiredRoleCount) {
+      // Use host-selected roles
+      rolesForGame = selectedRoles;
+    } else if (selectedRoles && selectedRoles.length !== requiredRoleCount) {
+      // Selected roles don't match player count - revert status and error
+      await roomRef.child('meta/status').set('waiting');
+      return { 
+        success: false, 
+        error: `Selected roles (${selectedRoles.length}) don't match required count (${requiredRoleCount}). Need ${playerCount} players + 3 center cards.`
+      };
+    } else {
+      // No roles selected - use default set for player count
+      rolesForGame = DEFAULT_ROLE_SETS[playerCount] || DEFAULT_ROLE_SETS[MIN_PLAYERS];
+    }
+
+    // Validate at least one werewolf
+    const werewolfCount = rolesForGame.filter(r => r === 'werewolf').length;
+    if (werewolfCount === 0) {
+      await roomRef.child('meta/status').set('waiting');
+      return { success: false, error: 'Selected roles must include at least one Werewolf' };
+    }
+
+    const shuffledRoles = shuffleArray(rolesForGame);
+
+    // Assign roles to players
+    const playerRoles: Record<string, WerewolfRole> = {};
+    for (let i = 0; i < playerCount; i++) {
+      playerRoles[playerIds[i]] = shuffledRoles[i];
+    }
+
+    // Assign center cards (last 3 roles)
+    const centerCards: WerewolfCenterCards = {
+      card1: shuffledRoles[playerCount],
+      card2: shuffledRoles[playerCount + 1],
+      card3: shuffledRoles[playerCount + 2],
+    };
+
+    // Determine which roles have night actions
+    const activeRoles = Object.values(playerRoles);
+    const nightActionOrder = NIGHT_ACTION_ORDER.filter((role) =>
+      activeRoles.includes(role)
+    );
+
+    // Calculate timestamps
+    const now = Date.now();
+    const discussionTime = roomData.meta.settings?.discussionTime || DEFAULT_DISCUSSION_TIME;
+    const votingTime = roomData.meta.settings?.votingTime || DEFAULT_VOTING_TIME;
+    
+    // Night phase doesn't have a timer - advances when all players have acted
+    const gameState: WerewolfGameState = {
+      startedAt: now,
+      endsAt: now + (discussionTime + votingTime) * 1000, // Estimated total time
+      dayEndsAt: null,
+      votingEndsAt: null,
+      currentPhase: 'night',
+      nightActionOrder,
+      currentNightActionIndex: 0,
+    };
+
+    // Create private player data for each player
+    const privatePlayerData: Record<string, WerewolfPrivatePlayerData> = {};
+    for (const pid of playerIds) {
+      privatePlayerData[pid] = {
+        originalRole: playerRoles[pid],
+        currentRole: playerRoles[pid],
+      };
+    }
+
+    // Reset player states
+    const playerUpdates: Record<string, Partial<WerewolfPlayer>> = {};
+    for (const pid of playerIds) {
+      playerUpdates[`players/${pid}/hasActed`] = false;
+      playerUpdates[`players/${pid}/vote`] = null;
+      playerUpdates[`players/${pid}/isReady`] = false;
+    }
+
+    // Atomic write
+    await roomRef.update({
+      'meta/status': 'night',
+      roles: playerRoles,
+      currentRoles: { ...playerRoles }, // Copy for tracking swaps
+      centerCards,
+      state: gameState,
+      privatePlayerData,
+      nightActions: {}, // Clear any previous actions
+      result: null,     // Clear previous result
+      ...playerUpdates,
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error('startGame error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to start game',
+    };
+  }
+}
+
+/**
+ * Perform a night action
+ * 
+ * Handles all night phase actions:
+ * - Werewolf: See other werewolves, or peek at center if alone
+ * - Seer: Look at player card or 2 center cards
+ * - Robber: Swap with player and see new role
+ * - Troublemaker: Swap two other players
+ * - Villager: No action (auto-completes)
+ * 
+ * RACE CONDITION PROTECTION:
+ * Uses transaction to atomically check hasActed and set it,
+ * preventing double-action from multiple tabs or rapid clicks.
+ */
+export async function performNightAction({
+  roomId,
+  playerId,
+  action,
+  target,
+}: PerformNightActionRequest): Promise<WerewolfActionResult> {
+  try {
+    const db = getAdminDatabase();
+    const roomRef = db.ref(`${ROOMS_BASE}/${roomId}`);
+
+    // Special case: werewolf_discover is a non-committing action to check for other werewolves
+    // This allows lone werewolves to see they're alone, then decide whether to peek
+    const isWerewolfDiscovery = action === 'werewolf_discover';
+
+    // Use transaction to atomically check and set hasActed
+    // Note: Transaction callback may be called multiple times, so we use the
+    // transaction result instead of closure variables for state tracking
+    let capturedRoomData: WerewolfRoomData | null = null;
+    let transactionError: string | null = null;
+
+    const transactionResult = await roomRef.transaction((currentData: WerewolfRoomData | null) => {
+      // Reset error on each invocation (transaction may retry)
+      transactionError = null;
+      
+      if (!currentData) {
+        // Don't set error here - Firebase will retry with actual data
+        // Returning undefined aborts this attempt but Firebase will retry
+        return undefined;
+      }
+
+      if (currentData.meta.status !== 'night') {
+        transactionError = 'Night actions can only be performed during night phase';
+        return; // Abort
+      }
+
+      const player = currentData.players?.[playerId];
+      if (!player) {
+        transactionError = 'Player not found in room';
+        return; // Abort
+      }
+
+      // For werewolf discovery, allow re-querying (it's read-only)
+      // For all other actions, check hasActed to prevent double-action
+      if (!isWerewolfDiscovery && player.hasActed) {
+        transactionError = 'You have already performed your night action';
+        return; // Abort
+      }
+
+      // Mark as acted atomically (except for werewolf discovery)
+      if (!isWerewolfDiscovery) {
+        currentData.players[playerId].hasActed = true;
+      }
+      capturedRoomData = JSON.parse(JSON.stringify(currentData));
+      return currentData;
+    });
+
+    // Check transaction result
+    if (!transactionResult.committed) {
+      // Transaction was aborted
+      return { 
+        success: false, 
+        error: transactionError || 'Transaction aborted' 
+      };
+    }
+
+    if (!capturedRoomData) {
+      return { success: false, error: 'Failed to capture room data' };
+    }
+
+    const roomData = capturedRoomData;
+
+    const originalRole = roomData.roles?.[playerId];
+    if (!originalRole) {
+      // Revert hasActed if role not found (shouldn't happen)
+      await roomRef.child(`players/${playerId}/hasActed`).set(false);
+      return { success: false, error: 'Role not assigned' };
+    }
+
+    // Execute the action and get result
+    // hasActed is already set true by the transaction above
+    const result = await executeNightAction({
+      roomId,
+      playerId,
+      role: originalRole,
+      action,
+      target,
+      roomData,
+      db,
+    });
+
+    if (!result.success) {
+      // Revert hasActed on error (but only if it was set)
+      if (!isWerewolfDiscovery) {
+        await roomRef.child(`players/${playerId}/hasActed`).set(false);
+      }
+      return result;
+    }
+
+    // For werewolf_discover, just return the result without storing anything
+    // This allows the player to then make their actual choice (peek or skip)
+    if (isWerewolfDiscovery) {
+      return { success: true, data: result.data };
+    }
+
+    // Note: hasActed already set in transaction
+
+    // Store the night action
+    const nightAction: WerewolfNightAction = {
+      playerId,
+      role: originalRole,
+      action,
+      target,
+      result: result.data as WerewolfNightActionResult,
+      performedAt: Date.now(),
+    };
+    await roomRef.child(`nightActions/${playerId}`).set(nightAction);
+
+    // Update private player data with result
+    if (result.data) {
+      await roomRef.child(`privatePlayerData/${playerId}/nightActionResult`).set(result.data);
+    }
+
+    // Check if all players have acted
+    const allPlayers = Object.keys(roomData.players || {});
+    const updatedSnapshot = await roomRef.once('value');
+    const updatedData: WerewolfRoomData = updatedSnapshot.val();
+    
+    const allActed = allPlayers.every(
+      (pid) => updatedData.players?.[pid]?.hasActed
+    );
+
+    if (allActed) {
+      // Auto-advance to day phase
+      await advanceToDay(roomId);
+    }
+
+    return { success: true, data: result.data };
+  } catch (error) {
+    console.error('performNightAction error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to perform night action',
+    };
+  }
+}
+
+/**
+ * Execute a specific night action
+ */
+async function executeNightAction({
+  roomId,
+  playerId,
+  role,
+  action,
+  target,
+  roomData,
+  db,
+}: {
+  roomId: string;
+  playerId: string;
+  role: WerewolfRole;
+  action: NightActionType;
+  target?: string | string[];
+  roomData: WerewolfRoomData;
+  db: ReturnType<typeof getAdminDatabase>;
+}): Promise<WerewolfActionResult> {
+  const roomRef = db.ref(`${ROOMS_BASE}/${roomId}`);
+  const currentRoles = roomData.currentRoles || roomData.roles || {};
+  const centerCards = roomData.centerCards;
+  const playerIds = Object.keys(roomData.players || {});
+
+  switch (role) {
+    case 'werewolf': {
+      // Find other werewolves
+      const otherWerewolves = playerIds.filter(
+        (pid) => pid !== playerId && currentRoles[pid] === 'werewolf'
+      );
+
+      // werewolf_discover: Just check for other werewolves (doesn't commit the action)
+      // This allows the UI to show whether the player is a lone werewolf
+      if (action === 'werewolf_discover') {
+        return {
+          success: true,
+          data: { 
+            otherWerewolves,
+            // Flag to indicate this was just discovery, not the final action
+            isDiscoveryOnly: true,
+          } as WerewolfNightActionResult,
+        };
+      }
+
+      if (otherWerewolves.length > 0) {
+        // Multiple werewolves - just see each other, action complete
+        return {
+          success: true,
+          data: { otherWerewolves } as WerewolfNightActionResult,
+        };
+      } else if (action === 'werewolf_peek' && typeof target === 'string') {
+        // Lone werewolf can peek at one center card
+        const cardIndex = parseInt(target);
+        if (cardIndex < 0 || cardIndex > 2) {
+          return { success: false, error: 'Invalid center card index' };
+        }
+        const cardKey = `card${cardIndex + 1}` as keyof WerewolfCenterCards;
+        const seenRole = centerCards?.[cardKey];
+        return {
+          success: true,
+          data: {
+            otherWerewolves: [],
+            centerCardSeen: seenRole,
+          } as WerewolfNightActionResult,
+        };
+      } else {
+        // Lone werewolf chose not to peek (action: 'none' or skip)
+        return {
+          success: true,
+          data: { otherWerewolves: [] } as WerewolfNightActionResult,
+        };
+      }
+    }
+
+    case 'seer': {
+      if (action === 'seer_player' && typeof target === 'string') {
+        // Look at another player's current role
+        if (target === playerId) {
+          return { success: false, error: 'Cannot look at your own card' };
+        }
+        const targetRole = currentRoles[target];
+        if (!targetRole) {
+          return { success: false, error: 'Invalid target player' };
+        }
+        return {
+          success: true,
+          data: {
+            playerRoleSeen: { playerId: target, role: targetRole },
+          } as WerewolfNightActionResult,
+        };
+      } else if (action === 'seer_center' && Array.isArray(target)) {
+        // Look at two center cards
+        if (target.length !== 2) {
+          return { success: false, error: 'Must select exactly 2 center cards' };
+        }
+        const centerCardsSeen: { index: number; role: WerewolfRole }[] = [];
+        for (const idx of target) {
+          const cardIndex = parseInt(idx);
+          if (cardIndex < 0 || cardIndex > 2) {
+            return { success: false, error: 'Invalid center card index' };
+          }
+          const cardKey = `card${cardIndex + 1}` as keyof WerewolfCenterCards;
+          centerCardsSeen.push({
+            index: cardIndex,
+            role: centerCards?.[cardKey] as WerewolfRole,
+          });
+        }
+        return {
+          success: true,
+          data: { centerCardsSeen } as WerewolfNightActionResult,
+        };
+      } else {
+        return { success: false, error: 'Invalid seer action' };
+      }
+    }
+
+    case 'robber': {
+      if (action === 'robber_swap' && typeof target === 'string') {
+        if (target === playerId) {
+          return { success: false, error: 'Cannot rob yourself' };
+        }
+        const targetRole = currentRoles[target];
+        if (!targetRole) {
+          return { success: false, error: 'Invalid target player' };
+        }
+        
+        // Swap roles
+        const myRole = currentRoles[playerId];
+        await roomRef.child(`currentRoles/${playerId}`).set(targetRole);
+        await roomRef.child(`currentRoles/${target}`).set(myRole);
+        
+        // Update private data - robber now has the new role
+        await roomRef.child(`privatePlayerData/${playerId}/currentRole`).set(targetRole);
+        await roomRef.child(`privatePlayerData/${target}/currentRole`).set(myRole);
+        
+        return {
+          success: true,
+          data: { newRole: targetRole } as WerewolfNightActionResult,
+        };
+      } else if (action === 'none') {
+        // Robber chose not to swap
+        return { success: true, data: {} };
+      } else {
+        return { success: false, error: 'Invalid robber action' };
+      }
+    }
+
+    case 'troublemaker': {
+      if (action === 'troublemaker_swap' && Array.isArray(target) && target.length === 2) {
+        const [player1, player2] = target;
+        if (player1 === playerId || player2 === playerId) {
+          return { success: false, error: 'Cannot include yourself in the swap' };
+        }
+        if (player1 === player2) {
+          return { success: false, error: 'Must select two different players' };
+        }
+        
+        const role1 = currentRoles[player1];
+        const role2 = currentRoles[player2];
+        if (!role1 || !role2) {
+          return { success: false, error: 'Invalid target players' };
+        }
+        
+        // Swap the two players' roles
+        await roomRef.child(`currentRoles/${player1}`).set(role2);
+        await roomRef.child(`currentRoles/${player2}`).set(role1);
+        
+        // Update private data for swapped players
+        await roomRef.child(`privatePlayerData/${player1}/currentRole`).set(role2);
+        await roomRef.child(`privatePlayerData/${player2}/currentRole`).set(role1);
+        
+        return {
+          success: true,
+          data: { swappedPlayers: [player1, player2] } as WerewolfNightActionResult,
+        };
+      } else if (action === 'none') {
+        // Troublemaker chose not to swap
+        return { success: true, data: {} };
+      } else {
+        return { success: false, error: 'Invalid troublemaker action' };
+      }
+    }
+
+    // =====================
+    // ADVANCED PACK 1 ROLES
+    // =====================
+
+    case 'minion': {
+      // Minion sees who the werewolves are (but werewolves don't know the minion)
+      const werewolves = playerIds.filter(
+        (pid) => currentRoles[pid] === 'werewolf'
+      );
+      return {
+        success: true,
+        data: { werewolvesSeen: werewolves } as WerewolfNightActionResult,
+      };
+    }
+
+    case 'mason': {
+      // Mason sees the other mason (if any)
+      const otherMason = playerIds.find(
+        (pid) => pid !== playerId && currentRoles[pid] === 'mason'
+      );
+      return {
+        success: true,
+        data: { otherMason: otherMason || null } as WerewolfNightActionResult,
+      };
+    }
+
+    case 'drunk': {
+      // Drunk MUST swap with a center card (no choice to skip)
+      if (action === 'drunk_swap' && typeof target === 'string') {
+        const cardIndex = parseInt(target);
+        if (cardIndex < 0 || cardIndex > 2) {
+          return { success: false, error: 'Invalid center card index' };
+        }
+        
+        const cardKey = `card${cardIndex + 1}` as keyof WerewolfCenterCards;
+        const centerRole = centerCards?.[cardKey];
+        const drunkRole = currentRoles[playerId];
+        
+        if (!centerRole || !drunkRole) {
+          return { success: false, error: 'Invalid swap state' };
+        }
+        
+        // Swap drunk's card with center card
+        await roomRef.child(`currentRoles/${playerId}`).set(centerRole);
+        await roomRef.child(`centerCards/${cardKey}`).set(drunkRole);
+        
+        // Update private data - drunk does NOT see their new role
+        await roomRef.child(`privatePlayerData/${playerId}/currentRole`).set(centerRole);
+        
+        return {
+          success: true,
+          // Drunk only knows WHICH card they swapped with, not what role they got
+          data: { centerCardSwapped: cardIndex } as WerewolfNightActionResult,
+        };
+      } else {
+        return { success: false, error: 'Drunk must select a center card to swap with' };
+      }
+    }
+
+    case 'insomniac': {
+      // Insomniac looks at their own card at the END of night (after all swaps)
+      // Re-read currentRoles to get the latest state after all swaps
+      const latestSnapshot = await roomRef.child('currentRoles').once('value');
+      const latestRoles = latestSnapshot.val() || currentRoles;
+      const finalRole = latestRoles[playerId];
+      
+      return {
+        success: true,
+        data: { finalRole } as WerewolfNightActionResult,
+      };
+    }
+
+    case 'villager': {
+      // Villagers have no night action
+      return { success: true, data: {} };
+    }
+
+    default:
+      return { success: false, error: `Unknown role: ${role}` };
+  }
+}
+
+/**
+ * Skip night action (for players without actions or who want to skip)
+ */
+export async function skipNightAction(
+  roomId: string,
+  playerId: string
+): Promise<WerewolfActionResult> {
+  return performNightAction({
+    roomId,
+    playerId,
+    action: 'none',
+  });
+}
+
+/**
+ * Check if night phase is complete
+ * 
+ * NIGHT COMPLETE CONDITIONS:
+ * 1. All players with night actions have acted, OR
+ * 2. All players have acted (including villagers marking "done")
+ * 
+ * Returns: { complete: boolean, actedCount: number, totalPlayers: number, pendingRoles: string[] }
+ */
+export async function checkNightComplete(
+  roomId: string
+): Promise<{ complete: boolean; actedCount: number; totalPlayers: number; pendingPlayers: string[] }> {
+  const db = getAdminDatabase();
+  const roomRef = db.ref(`${ROOMS_BASE}/${roomId}`);
+  
+  const snapshot = await roomRef.once('value');
+  const roomData: WerewolfRoomData | null = snapshot.val();
+  
+  if (!roomData || roomData.meta.status !== 'night') {
+    return { complete: false, actedCount: 0, totalPlayers: 0, pendingPlayers: [] };
+  }
+
+  const players = roomData.players || {};
+  const playerIds = Object.keys(players);
+  const totalPlayers = playerIds.length;
+  
+  const actedCount = playerIds.filter((pid) => players[pid]?.hasActed).length;
+  const pendingPlayers = playerIds.filter((pid) => !players[pid]?.hasActed);
+  
+  return {
+    complete: actedCount === totalPlayers,
+    actedCount,
+    totalPlayers,
+    pendingPlayers,
+  };
+}
+
+/**
+ * Force advance from night to day (host only)
+ * 
+ * Use when:
+ * - Some players are AFK/unresponsive
+ * - Host wants to speed up the game
+ * 
+ * RACE CONDITION PROTECTION:
+ * Uses transaction to ensure atomic phase transition.
+ */
+export async function forceAdvanceToDay(
+  roomId: string,
+  playerId: string
+): Promise<WerewolfActionResult> {
+  try {
+    const db = getAdminDatabase();
+    const roomRef = db.ref(`${ROOMS_BASE}/${roomId}`);
+
+    let transactionError: string | null = null;
+    let transactionSuccess = false;
+
+    await roomRef.transaction((currentData: WerewolfRoomData | null) => {
+      if (!currentData) {
+        transactionError = 'Room not found';
+        return;
+      }
+
+      // CRITICAL: Check phase INSIDE transaction
+      if (currentData.meta.status !== 'night') {
+        transactionError = 'Can only advance from night phase';
+        return;
+      }
+
+      const player = currentData.players?.[playerId];
+      if (!player?.isHost) {
+        transactionError = 'Only the host can force advance';
+        return;
+      }
+
+      const discussionTime = currentData.meta.settings?.discussionTime || DEFAULT_DISCUSSION_TIME;
+      const now = Date.now();
+      const dayEndsAt = now + discussionTime * 1000;
+
+      // Atomically update to day phase
+      currentData.meta.status = 'day';
+      if (currentData.state) {
+        currentData.state.currentPhase = 'day';
+        currentData.state.dayEndsAt = dayEndsAt;
+      }
+
+      transactionSuccess = true;
+      return currentData;
+    });
+
+    if (transactionError) {
+      return { success: false, error: transactionError };
+    }
+
+    if (!transactionSuccess) {
+      return { success: false, error: 'Failed to advance (transaction conflict)' };
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error('forceAdvanceToDay error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to force advance',
+    };
+  }
+}
+
+/**
+ * Advance to day phase (internal - called when all players have acted)
+ */
+async function advanceToDay(roomId: string): Promise<void> {
+  const db = getAdminDatabase();
+  const roomRef = db.ref(`${ROOMS_BASE}/${roomId}`);
+  
+  const snapshot = await roomRef.once('value');
+  const roomData: WerewolfRoomData | null = snapshot.val();
+  
+  if (!roomData) return;
+
+  const discussionTime = roomData.meta.settings?.discussionTime || DEFAULT_DISCUSSION_TIME;
+  const now = Date.now();
+  const dayEndsAt = now + discussionTime * 1000;
+
+  await roomRef.update({
+    'meta/status': 'day',
+    'state/currentPhase': 'day',
+    'state/dayEndsAt': dayEndsAt,
+  });
+}
+
+/**
+ * Advance from day to voting phase (host only)
+ * 
+ * RACE CONDITION PROTECTION:
+ * Uses transaction to ensure phase transition is atomic.
+ */
+export async function advanceToVoting(
+  roomId: string,
+  playerId: string
+): Promise<WerewolfActionResult> {
+  try {
+    const db = getAdminDatabase();
+    const roomRef = db.ref(`${ROOMS_BASE}/${roomId}`);
+
+    let transactionError: string | null = null;
+    let transactionSuccess = false;
+
+    await roomRef.transaction((currentData: WerewolfRoomData | null) => {
+      if (!currentData) {
+        transactionError = 'Room not found';
+        return;
+      }
+
+      // CRITICAL: Check phase INSIDE transaction
+      if (currentData.meta.status !== 'day') {
+        transactionError = 'Can only advance to voting from day phase';
+        return;
+      }
+
+      const player = currentData.players?.[playerId];
+      if (!player?.isHost) {
+        transactionError = 'Only the host can advance to voting';
+        return;
+      }
+
+      const votingTime = currentData.meta.settings?.votingTime || DEFAULT_VOTING_TIME;
+      const now = Date.now();
+      const votingEndsAt = now + votingTime * 1000;
+
+      // Atomically update phase and reset votes
+      currentData.meta.status = 'voting';
+      if (currentData.state) {
+        currentData.state.currentPhase = 'voting';
+        currentData.state.votingEndsAt = votingEndsAt;
+      }
+
+      // Reset all votes
+      for (const pid of Object.keys(currentData.players || {})) {
+        currentData.players[pid].vote = null;
+      }
+
+      transactionSuccess = true;
+      return currentData;
+    });
+
+    if (transactionError) {
+      return { success: false, error: transactionError };
+    }
+
+    if (!transactionSuccess) {
+      return { success: false, error: 'Failed to advance to voting (transaction conflict)' };
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error('advanceToVoting error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to advance to voting',
+    };
+  }
+}
+
+/**
+ * Cast a vote during voting phase
+ */
+export async function castVote({
+  roomId,
+  playerId,
+  targetPlayerId,
+}: CastVoteRequest): Promise<WerewolfActionResult> {
+  try {
+    const db = getAdminDatabase();
+    const roomRef = db.ref(`${ROOMS_BASE}/${roomId}`);
+
+    const snapshot = await roomRef.once('value');
+    const roomData: WerewolfRoomData | null = snapshot.val();
+    
+    if (!roomData) {
+      return { success: false, error: 'Room not found' };
+    }
+    
+    if (roomData.meta.status !== 'voting') {
+      return { success: false, error: 'Voting is not active' };
+    }
+
+    const player = roomData.players?.[playerId];
+    if (!player) {
+      return { success: false, error: 'Player not found' };
+    }
+
+    // Validate target exists
+    if (!roomData.players?.[targetPlayerId]) {
+      return { success: false, error: 'Invalid vote target' };
+    }
+
+    // Record the vote
+    await roomRef.child(`players/${playerId}/vote`).set(targetPlayerId);
+
+    // Check if all players have voted
+    const allPlayers = Object.keys(roomData.players || {});
+    const updatedSnapshot = await roomRef.once('value');
+    const updatedData: WerewolfRoomData = updatedSnapshot.val();
+    
+    const allVoted = allPlayers.every(
+      (pid) => updatedData.players?.[pid]?.vote !== null
+    );
+
+    if (allVoted) {
+      // End the game and determine winner
+      await endGameAndDetermineWinner(roomId);
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error('castVote error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to cast vote',
+    };
+  }
+}
+
+/**
+ * End the game and determine the winner
+ */
+async function endGameAndDetermineWinner(roomId: string): Promise<void> {
+  const db = getAdminDatabase();
+  const roomRef = db.ref(`${ROOMS_BASE}/${roomId}`);
+
+  const snapshot = await roomRef.once('value');
+  const roomData: WerewolfRoomData | null = snapshot.val();
+  
+  if (!roomData) return;
+
+  const players = roomData.players || {};
+  const currentRoles = roomData.currentRoles || roomData.roles || {};
+  const centerCards = roomData.centerCards;
+  const playerIds = Object.keys(players);
+
+  // Count votes
+  const voteCounts: Record<string, number> = {};
+  const votes: Record<string, string> = {};
+  
+  for (const pid of playerIds) {
+    const vote = players[pid]?.vote;
+    if (vote) {
+      votes[pid] = vote;
+      voteCounts[vote] = (voteCounts[vote] || 0) + 1;
+    }
+  }
+
+  // Find player(s) with most votes
+  const maxVotes = Math.max(...Object.values(voteCounts), 0);
+  const eliminated = playerIds.filter((pid) => voteCounts[pid] === maxVotes);
+
+  // Determine winner based on eliminated player's CURRENT role
+  let winners: 'village' | 'werewolf' | 'nobody' | null = null;
+  let eliminatedPlayerId: string | null = null;
+  let eliminatedPlayerRole: WerewolfRole | null = null;
+
+  // Find all werewolves (by current role)
+  const werewolves = playerIds.filter((pid) => currentRoles[pid] === 'werewolf');
+
+  if (eliminated.length === 0 || maxVotes === 0) {
+    // No one eliminated (tie or no votes)
+    // Werewolves win if there are any, otherwise village wins
+    winners = werewolves.length > 0 ? 'werewolf' : 'village';
+  } else if (eliminated.length > 1) {
+    // Tie - no one dies (based on standard ONUW rules, ties result in no elimination)
+    winners = werewolves.length > 0 ? 'werewolf' : 'village';
+  } else {
+    // Single player eliminated
+    eliminatedPlayerId = eliminated[0];
+    eliminatedPlayerRole = currentRoles[eliminatedPlayerId];
+
+    if (eliminatedPlayerRole === 'werewolf') {
+      // Village wins if they kill a werewolf
+      winners = 'village';
+    } else if (werewolves.length === 0) {
+      // No werewolves in game - village wins if they don't kill anyone
+      // But they killed a villager, so nobody wins (based on variant rules)
+      // Standard: Village wins if there are no werewolves
+      winners = 'village';
+    } else {
+      // Village killed an innocent, werewolves win
+      winners = 'werewolf';
+    }
+  }
+
+  const result: WerewolfGameResult = {
+    winners,
+    eliminatedPlayerId,
+    eliminatedPlayerRole,
+    votes,
+    finalRoles: currentRoles,
+    originalRoles: roomData.roles || {},
+    centerCards: centerCards as WerewolfCenterCards,
+  };
+
+  await roomRef.update({
+    'meta/status': 'ended',
+    'state/currentPhase': 'ended',
+    result,
+  });
+}
+
+/**
+ * Force end the game (host only)
+ */
+export async function endGame(
+  roomId: string,
+  playerId: string
+): Promise<WerewolfActionResult> {
+  try {
+    const db = getAdminDatabase();
+    const roomRef = db.ref(`${ROOMS_BASE}/${roomId}`);
+
+    const snapshot = await roomRef.once('value');
+    const roomData: WerewolfRoomData | null = snapshot.val();
+    
+    if (!roomData) {
+      return { success: false, error: 'Room not found' };
+    }
+
+    const player = roomData.players?.[playerId];
+    if (!player?.isHost) {
+      return { success: false, error: 'Only the host can end the game' };
+    }
+
+    if (roomData.meta.status === 'waiting' || roomData.meta.status === 'ended') {
+      return { success: false, error: 'Game is not in progress' };
+    }
+
+    // Create a result showing game was ended early
+    const currentRoles = roomData.currentRoles || roomData.roles || {};
+    const result: WerewolfGameResult = {
+      winners: null, // No winner - game ended early
+      eliminatedPlayerId: null,
+      eliminatedPlayerRole: null,
+      votes: {},
+      finalRoles: currentRoles,
+      originalRoles: roomData.roles || {},
+      centerCards: roomData.centerCards as WerewolfCenterCards,
+    };
+
+    await roomRef.update({
+      'meta/status': 'ended',
+      'state/currentPhase': 'ended',
+      result,
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error('endGame error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to end game',
+    };
+  }
+}
+
+/**
+ * Reset the game for a new round (host only)
+ */
+export async function resetGame(
+  roomId: string,
+  playerId: string
+): Promise<WerewolfActionResult> {
+  try {
+    const db = getAdminDatabase();
+    const roomRef = db.ref(`${ROOMS_BASE}/${roomId}`);
+
+    const snapshot = await roomRef.once('value');
+    const roomData: WerewolfRoomData | null = snapshot.val();
+    
+    if (!roomData) {
+      return { success: false, error: 'Room not found' };
+    }
+
+    const player = roomData.players?.[playerId];
+    if (!player?.isHost) {
+      return { success: false, error: 'Only the host can reset the game' };
+    }
+
+    // Reset player states
+    const playerUpdates: Record<string, unknown> = {};
+    for (const pid of Object.keys(roomData.players || {})) {
+      playerUpdates[`players/${pid}/hasActed`] = false;
+      playerUpdates[`players/${pid}/vote`] = null;
+      playerUpdates[`players/${pid}/isReady`] = false;
+    }
+
+    await roomRef.update({
+      'meta/status': 'waiting',
+      roles: null,
+      currentRoles: null,
+      centerCards: null,
+      state: null,
+      nightActions: null,
+      privatePlayerData: null,
+      result: null,
+      ...playerUpdates,
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error('resetGame error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to reset game',
+    };
+  }
+}
+
+/**
+ * Kick a player from the room (host only, waiting phase only)
+ */
+export async function kickPlayer(
+  roomId: string,
+  hostPlayerId: string,
+  targetPlayerId: string
+): Promise<WerewolfActionResult> {
+  try {
+    const db = getAdminDatabase();
+    const roomRef = db.ref(`${ROOMS_BASE}/${roomId}`);
+
+    const snapshot = await roomRef.once('value');
+    const roomData: WerewolfRoomData | null = snapshot.val();
+    
+    if (!roomData) {
+      return { success: false, error: 'Room not found' };
+    }
+
+    const hostPlayer = roomData.players?.[hostPlayerId];
+    if (!hostPlayer?.isHost) {
+      return { success: false, error: 'Only the host can kick players' };
+    }
+
+    if (roomData.meta.status !== 'waiting') {
+      return { success: false, error: 'Can only kick players before game starts' };
+    }
+
+    if (hostPlayerId === targetPlayerId) {
+      return { success: false, error: 'Cannot kick yourself' };
+    }
+
+    if (!roomData.players?.[targetPlayerId]) {
+      return { success: false, error: 'Target player not found' };
+    }
+
+    await roomRef.child(`players/${targetPlayerId}`).remove();
+
+    return { success: true };
+  } catch (error) {
+    console.error('kickPlayer error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to kick player',
+    };
+  }
+}
+
+/**
+ * Handle player disconnect/leave with host promotion
+ */
+export async function handlePlayerLeave(
+  roomId: string,
+  playerId: string
+): Promise<WerewolfActionResult> {
+  try {
+    const db = getAdminDatabase();
+    const roomRef = db.ref(`${ROOMS_BASE}/${roomId}`);
+
+    const snapshot = await roomRef.once('value');
+    const roomData: WerewolfRoomData | null = snapshot.val();
+    
+    if (!roomData) {
+      return { success: false, error: 'Room not found' };
+    }
+
+    const players = roomData.players || {};
+    const leavingPlayer = players[playerId];
+    
+    if (!leavingPlayer) {
+      return { success: false, error: 'Player not in room' };
+    }
+
+    const playerIds = Object.keys(players);
+    const remainingPlayers = playerIds.filter((id) => id !== playerId);
+
+    // If this is the last player, delete the room
+    if (remainingPlayers.length === 0) {
+      await roomRef.remove();
+      return { success: true };
+    }
+
+    // If host is leaving, promote another player
+    if (leavingPlayer.isHost) {
+      // Find earliest joined remaining player
+      const sortedRemaining = remainingPlayers
+        .map((id) => ({ id, joinedAt: players[id].joinedAt }))
+        .sort((a, b) => a.joinedAt - b.joinedAt);
+      
+      const newHostId = sortedRemaining[0].id;
+      await roomRef.child(`players/${newHostId}/isHost`).set(true);
+    }
+
+    // Remove the player
+    await roomRef.child(`players/${playerId}`).remove();
+    await roomRef.child(`privatePlayerData/${playerId}`).remove();
+    await roomRef.child(`nightActions/${playerId}`).remove();
+
+    return { success: true };
+  } catch (error) {
+    console.error('handlePlayerLeave error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to handle player leave',
+    };
+  }
+}
+
+/**
+ * Update selected roles for the game
+ * 
+ * Only the host can update role selection during waiting phase.
+ * Validates role selection before saving.
+ */
+export async function updateSelectedRoles(
+  roomId: string,
+  playerId: string,
+  selectedRoles: WerewolfRole[]
+): Promise<WerewolfActionResult> {
+  try {
+    const db = getAdminDatabase();
+    const roomRef = db.ref(`${ROOMS_BASE}/${roomId}`);
+
+    const snapshot = await roomRef.once('value');
+    const roomData: WerewolfRoomData | null = snapshot.val();
+    
+    if (!roomData) {
+      return { success: false, error: 'Room not found' };
+    }
+
+    // Verify player is host
+    const player = roomData.players?.[playerId];
+    if (!player?.isHost) {
+      return { success: false, error: 'Only the host can change role selection' };
+    }
+
+    // Can only change during waiting phase
+    if (roomData.meta.status !== 'waiting') {
+      return { success: false, error: 'Cannot change roles after game has started' };
+    }
+
+    // Validate role types only - allow any combination during editing
+    // Full validation (werewolf count, role count) happens at startGame() 
+    const validRoles: WerewolfRole[] = [
+      'werewolf', 'seer', 'robber', 'troublemaker', 'villager',
+      'minion', 'mason', 'drunk', 'insomniac'
+    ];
+    
+    for (const role of selectedRoles) {
+      if (!validRoles.includes(role)) {
+        return { success: false, error: `Invalid role: ${role}` };
+      }
+    }
+
+    // NOTE: Do NOT validate werewolf count or total role count here.
+    // This allows the host to freely edit roles (add/remove).
+    // Full validation is done in startGame() before the game begins.
+
+    // Save selected roles
+    await roomRef.child('meta/selectedRoles').set(selectedRoles);
+
+    return { success: true };
+  } catch (error) {
+    console.error('updateSelectedRoles error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to update roles',
+    };
+  }
+}

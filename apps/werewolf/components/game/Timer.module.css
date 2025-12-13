@@ -1,0 +1,59 @@
+.timer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 1rem 1.5rem;
+  background: rgba(25, 28, 41, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 1rem;
+  min-width: 150px;
+}
+
+.label {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.1rem;
+  margin-bottom: 0.25rem;
+}
+
+.timerValue {
+  font-size: 2.5rem;
+  font-weight: bold;
+  font-variant-numeric: tabular-nums;
+  color: #fff;
+  line-height: 1;
+}
+
+.lowTime {
+  border-color: rgba(251, 191, 36, 0.4);
+}
+
+.lowTime .timerValue {
+  color: #fbbf24;
+  animation: pulse 1s infinite;
+}
+
+.expired {
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
+.expired .timerValue {
+  color: #ef4444;
+}
+
+.expiredText {
+  font-size: 0.75rem;
+  color: #ef4444;
+  margin-top: 0.25rem;
+  font-weight: 500;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}

@@ -1,7 +1,5 @@
 {
   "rules": {
-    // Admin index - only readable by admins (server-side only in practice)
-    // Write access only via server (admin SDK bypasses rules)
     "adminIndex": {
       ".read": false,
       ".write": false,
@@ -18,49 +16,39 @@
         ".write": false
       }
     },
-    
-    // Admin users allowlist - never readable/writable from client
+
     "adminUsers": {
       ".read": false,
       ".write": false
     },
-    
-    // Games data
+
     "games": {
       "spyfall": {
         "rooms": {
           "$roomId": {
-            // Meta: anyone can read, only server can write status
             "meta": {
               ".read": true,
-              // Allow initial creation (status = waiting)
               ".write": "!data.exists() || auth != null",
               "status": {
-                // Status changes only from server (admin SDK)
                 ".write": false
               }
             },
-            
-            // Players: anyone can read, authenticated users can write their own data
+
             "players": {
               ".read": true,
               "$playerId": {
-                // Players can write their own data
                 ".write": "auth != null && auth.uid == $playerId",
-                // But cannot change isHost (server-controlled)
                 "isHost": {
                   ".write": false
                 }
               }
             },
-            
-            // Game state: anyone can read (for UI), only server can write
+
             "state": {
               ".read": true,
               ".write": false
             },
-            
-            // Private player data: players can only read their own
+
             "privatePlayerData": {
               ".read": false,
               "$playerId": {
@@ -71,19 +59,101 @@
           }
         }
       },
-      
-      // Future games follow same pattern
+
       "codenames": {
         ".read": false,
         ".write": false
       },
+      
       "werewolf": {
-        ".read": false,
-        ".write": false
+        "rooms": {
+          "$roomId": {
+            // Room meta: readable by all, only server can change status
+            "meta": {
+              ".read": true,
+              ".write": "!data.exists() || auth != null",
+              "status": {
+                // CRITICAL: status can ONLY be changed by server (admin SDK)
+                // This prevents client-side phase manipulation
+                ".write": false
+              },
+              "settings": {
+                ".write": "auth != null"
+              }
+            },
+
+            // Players: readable by all, individual player can update their own non-sensitive fields
+            "players": {
+              ".read": true,
+              "$playerId": {
+                // Players can only write their own data
+                ".write": "auth != null && auth.uid == $playerId",
+                // CRITICAL: These fields are server-controlled only
+                "isHost": {
+                  ".write": false
+                },
+                "hasActed": {
+                  // Server controls this to prevent client spoofing night actions
+                  ".write": false
+                },
+                "vote": {
+                  // Server controls voting to prevent manipulation
+                  ".write": false
+                }
+              }
+            },
+
+            // Game state: readable by all, only server writes
+            "state": {
+              ".read": true,
+              ".write": false
+            },
+
+            // Original role assignments: NEVER readable by clients
+            "roles": {
+              ".read": false,
+              ".write": false
+            },
+
+            // Current roles after swaps: NEVER readable by clients
+            "currentRoles": {
+              ".read": false,
+              ".write": false
+            },
+
+            // Center cards: NEVER readable by clients (revealed in result only)
+            "centerCards": {
+              ".read": false,
+              ".write": false
+            },
+
+            // Night action log: NEVER readable by clients
+            "nightActions": {
+              ".read": false,
+              ".write": false
+            },
+
+            // Game result: readable only after game ends
+            "result": {
+              ".read": true,
+              ".write": false
+            },
+
+            // Private player data: each player can ONLY read their own
+            "privatePlayerData": {
+              ".read": false,
+              "$playerId": {
+                // CRITICAL: Only the owner can read their role/action info
+                ".read": "auth != null && auth.uid == $playerId",
+                // Only server can write role assignments
+                ".write": false
+              }
+            }
+          }
+        }
       }
     },
-    
-    // Default deny all
+
     "$other": {
       ".read": false,
       ".write": false
