@@ -37,3 +37,6 @@ export interface GameInfo {
 
 // Re-export Spyfall types
 export * from './spyfall';
+
+// Re-export Werewolf types
+export * from './werewolf';

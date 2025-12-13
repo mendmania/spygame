@@ -1,0 +1,194 @@
+.container {
+  background: rgba(25, 28, 41, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 1rem;
+  padding: 2rem;
+  max-width: 500px;
+  width: 100%;
+}
+
+/* Winner section */
+.winnerSection {
+  text-align: center;
+  margin-bottom: 2rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.winnerEmoji {
+  font-size: 4rem;
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+.winnerText {
+  font-size: 2rem;
+  font-weight: bold;
+  margin: 0;
+}
+
+.playerResult {
+  font-size: 1.25rem;
+  color: rgba(255, 255, 255, 0.8);
+  margin: 0.5rem 0 0;
+}
+
+/* Section styling */
+.sectionTitle {
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1rem;
+  color: rgba(255, 255, 255, 0.5);
+  margin: 0 0 1rem;
+}
+
+/* Eliminated section */
+.eliminatedSection {
+  margin-bottom: 1.5rem;
+}
+
+.eliminatedPlayer {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 0.5rem;
+}
+
+.eliminatedEmoji {
+  font-size: 2rem;
+}
+
+.eliminatedInfo {
+  display: flex;
+  flex-direction: column;
+}
+
+.eliminatedName {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #fff;
+}
+
+.eliminatedRole {
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.noEliminationSection {
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 0.5rem;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* Roles section */
+.rolesSection {
+  margin-bottom: 1.5rem;
+}
+
+.rolesList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.playerRole {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 0.5rem;
+  transition: background 0.2s ease;
+}
+
+.playerRole.currentPlayer {
+  background: rgba(88, 199, 250, 0.1);
+  border: 1px solid rgba(88, 199, 250, 0.3);
+}
+
+.roleEmoji {
+  font-size: 1.5rem;
+}
+
+.roleInfo {
+  display: flex;
+  flex-direction: column;
+}
+
+.playerName {
+  font-size: 0.875rem;
+  color: #fff;
+}
+
+.roleName {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.swapped {
+  color: rgba(251, 191, 36, 0.8);
+}
+
+/* Center cards section */
+.centerSection {
+  margin-bottom: 1.5rem;
+}
+
+.centerCards {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: center;
+}
+
+.centerCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.75rem 1rem;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.5rem;
+  min-width: 80px;
+}
+
+.centerCardEmoji {
+  font-size: 1.5rem;
+}
+
+.centerCardName {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* Play again button */
+.playAgainButton {
+  width: 100%;
+  padding: 1rem;
+  background: linear-gradient(135deg, #8B0000, #b91c1c);
+  border: none;
+  border-radius: 0.5rem;
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.playAgainButton:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 20px rgba(139, 0, 0, 0.4);
+}
+
+.waitingText {
+  text-align: center;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.875rem;
+  margin: 0;
+}

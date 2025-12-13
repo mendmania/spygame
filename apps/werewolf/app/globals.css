@@ -1,0 +1,15 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  @apply bg-gray-950 text-white;
+}
+
+/* Werewolf-specific theme variables */
+:root {
+  --werewolf-blood: #8B0000;
+  --werewolf-night: #0a0a1a;
+  --werewolf-moon: #f4e99b;
+  --werewolf-forest: #1a472a;
+}

@@ -1,0 +1,123 @@
+.card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  border-radius: 1rem;
+  border: 2px solid;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  cursor: default;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+}
+
+/* Sizes */
+.small {
+  width: 120px;
+  min-height: 140px;
+  padding: 0.75rem;
+}
+
+.medium {
+  width: 200px;
+  min-height: 240px;
+}
+
+.large {
+  width: 280px;
+  min-height: 320px;
+  padding: 2rem;
+}
+
+/* Hidden card */
+.hidden {
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.hiddenContent {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.hiddenIcon {
+  font-size: 3rem;
+}
+
+.hiddenText {
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.1rem;
+}
+
+/* Card content */
+.emoji {
+  font-size: 3rem;
+  margin-bottom: 0.5rem;
+}
+
+.small .emoji {
+  font-size: 2rem;
+  margin-bottom: 0.25rem;
+}
+
+.large .emoji {
+  font-size: 4rem;
+  margin-bottom: 1rem;
+}
+
+.roleName {
+  font-size: 1.25rem;
+  font-weight: bold;
+  color: #fff;
+  margin: 0 0 0.25rem;
+}
+
+.small .roleName {
+  font-size: 0.875rem;
+}
+
+.large .roleName {
+  font-size: 1.5rem;
+}
+
+.swappedBadge {
+  background: rgba(255, 165, 0, 0.2);
+  color: #ffa94d;
+  font-size: 0.75rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  margin-bottom: 0.5rem;
+}
+
+.actionDescription {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.7);
+  text-align: center;
+  margin: 0.5rem 0;
+  font-style: italic;
+}
+
+.description {
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.6);
+  text-align: center;
+  margin: 0.5rem 0;
+}
+
+.small .description {
+  display: none;
+}
+
+.teamBadge {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.5);
+  margin-top: auto;
+  padding-top: 0.5rem;
+}
