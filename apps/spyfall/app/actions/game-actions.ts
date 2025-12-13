@@ -11,10 +11,19 @@
  * - State transition validation
  * - Host promotion on disconnect
  * - Expired game enforcement
+ * 
+ * Admin Index Integration:
+ * - Updates /adminIndex on room creation, status changes, player count
  */
 
 import { getAdminDatabase } from '@/lib/firebase-admin';
 import { SPY_LOCATIONS } from '@/constants/locations';
+import {
+  updateAdminRoomIndex,
+  updateAdminRoomStatus,
+  updateAdminPlayerCount,
+  removeFromAdminIndex,
+} from './admin-index-actions';
 import type {
   GameActionResult,
   SpyfallGameState,
@@ -146,6 +155,9 @@ export async function startGame(
       privatePlayerData,
     });
 
+    // Update admin index (non-blocking)
+    updateAdminRoomStatus(roomId, 'playing').catch(console.error);
+
     return { success: true };
   } catch (error) {
     console.error('startGame error:', error);
@@ -207,6 +219,9 @@ export async function endGame(
       'meta/status': 'finished',
     });
 
+    // Update admin index (non-blocking)
+    updateAdminRoomStatus(roomId, 'finished').catch(console.error);
+
     return { success: true };
   } catch (error) {
     console.error('endGame error:', error);
@@ -267,6 +282,9 @@ export async function resetGame(
       privatePlayerData: null,
     });
 
+    // Update admin index (non-blocking)
+    updateAdminRoomStatus(roomId, 'waiting').catch(console.error);
+
     return { success: true };
   } catch (error) {
     console.error('resetGame error:', error);
@@ -321,6 +339,9 @@ export async function checkAndEndExpiredGame(
       'meta/status': 'finished',
     });
 
+    // Update admin index (non-blocking)
+    updateAdminRoomStatus(roomId, 'finished').catch(console.error);
+
     return { success: true };
   } catch (error) {
     console.error('checkAndEndExpiredGame error:', error);
@@ -368,6 +389,8 @@ export async function handlePlayerLeave(
     // If no players left, delete the room
     if (remainingPlayerIds.length === 0) {
       await roomRef.remove();
+      // Update admin index (non-blocking)
+      removeFromAdminIndex(roomId).catch(console.error);
       return { success: true };
     }
 
@@ -375,15 +398,26 @@ export async function handlePlayerLeave(
     await roomRef.child(`players/${playerId}`).remove();
 
     // If leaving player was host, promote next player
+    let newHostName = '';
+    let newHostId = '';
     if (wasHost) {
       // Sort by joinedAt to get most senior player
       const sortedPlayers = remainingPlayerIds
         .map((id) => ({ id, ...players[id] }))
         .sort((a, b) => a.joinedAt - b.joinedAt);
 
-      const newHostId = sortedPlayers[0].id;
+      newHostId = sortedPlayers[0].id;
+      newHostName = sortedPlayers[0].displayName;
       await roomRef.child(`players/${newHostId}/isHost`).set(true);
     }
+
+    // Update admin index with new player count (non-blocking)
+    updateAdminPlayerCount(
+      roomId,
+      remainingPlayerIds.length,
+      wasHost ? newHostName : undefined,
+      wasHost ? newHostId : undefined
+    ).catch(console.error);
 
     return { success: true };
   } catch (error) {
@@ -444,6 +478,10 @@ export async function kickPlayer(
 
     // Remove the player
     await roomRef.child(`players/${targetPlayerId}`).remove();
+
+    // Update admin index with new player count (non-blocking)
+    const newCount = Object.keys(players).length - 1;
+    updateAdminPlayerCount(roomId, newCount).catch(console.error);
 
     return { success: true };
   } catch (error) {
@@ -525,6 +563,120 @@ export async function handlePlayerJoin(
     return { success: true, isReconnect };
   } catch (error) {
     console.error('handlePlayerJoin error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to join room',
+    };
+  }
+}
+
+/**
+ * Create a new room (server action)
+ * 
+ * Creates the room and updates the admin index
+ */
+export async function createRoomServer(
+  roomId: string,
+  playerId: string,
+  displayName: string
+): Promise<GameActionResult> {
+  try {
+    const db = getAdminDatabase();
+    const roomRef = db.ref(`${ROOMS_BASE}/${roomId}`);
+
+    // Check if room already exists
+    const snapshot = await roomRef.once('value');
+    if (snapshot.exists()) {
+      return { success: false, error: 'Room already exists' };
+    }
+
+    const now = Date.now();
+
+    // Create room data
+    const roomData = {
+      meta: {
+        status: 'waiting',
+        createdAt: now,
+        createdBy: playerId,
+      },
+      players: {
+        [playerId]: {
+          displayName,
+          isHost: true,
+          joinedAt: now,
+        },
+      },
+    };
+
+    await roomRef.set(roomData);
+
+    // Update admin index (non-blocking)
+    updateAdminRoomIndex(roomId, {
+      status: 'waiting',
+      playerCount: 1,
+      createdAt: now,
+      lastActiveAt: now,
+      hostName: displayName,
+      hostId: playerId,
+    }).catch(console.error);
+
+    return { success: true };
+  } catch (error) {
+    console.error('createRoomServer error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to create room',
+    };
+  }
+}
+
+/**
+ * Join room and update admin index (server action)
+ */
+export async function joinRoomServer(
+  roomId: string,
+  playerId: string,
+  displayName: string
+): Promise<GameActionResult & { isReconnect?: boolean }> {
+  try {
+    const db = getAdminDatabase();
+    const roomRef = db.ref(`${ROOMS_BASE}/${roomId}`);
+
+    const snapshot = await roomRef.once('value');
+    const currentData = snapshot.val();
+
+    if (!currentData) {
+      return { success: false, error: 'Room not found' };
+    }
+
+    const players = currentData.players || {};
+    const existingPlayer = players[playerId];
+
+    // Reconnect scenario
+    if (existingPlayer) {
+      await roomRef.child(`players/${playerId}/displayName`).set(displayName);
+      return { success: true, isReconnect: true };
+    }
+
+    // New player - check if joining is allowed
+    if (currentData.meta?.status !== 'waiting') {
+      return { success: false, error: 'Cannot join - game in progress' };
+    }
+
+    // Add new player
+    await roomRef.child(`players/${playerId}`).set({
+      displayName,
+      isHost: false,
+      joinedAt: Date.now(),
+    });
+
+    // Update admin index with new player count (non-blocking)
+    const newCount = Object.keys(players).length + 1;
+    updateAdminPlayerCount(roomId, newCount).catch(console.error);
+
+    return { success: true, isReconnect: false };
+  } catch (error) {
+    console.error('joinRoomServer error:', error);
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Failed to join room',
