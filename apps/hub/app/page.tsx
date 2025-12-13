@@ -1,5 +1,7 @@
 import { Card, CardHeader, CardContent } from '@vbz/ui';
 
+const SPYFALL_URL = process.env.NEXT_PUBLIC_SPYFALL_URL || '/spyfall';
+
 const GAMES = [
   {
     id: 'spyfall',
@@ -7,7 +9,7 @@ const GAMES = [
     description: 'One spy. One secret location. Find the spy before time runs out!',
     players: '4-10',
     duration: '8 min',
-    href: 'http://localhost:3001',
+    href: SPYFALL_URL,
     available: true,
   },
   {
@@ -43,7 +45,7 @@ export default function HomePage() {
         </p>
         <div className="flex gap-4 justify-center">
           <a
-            href="http://localhost:3001"
+            href={SPYFALL_URL}
             className="inline-flex items-center justify-center rounded-lg font-medium h-12 px-6 text-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors"
           >
             Play Spyfall

@@ -28,7 +28,7 @@ export default function RootLayout({
                 </Link>
                 <nav className="flex gap-6">
                   <a
-                    href="http://localhost:3000"
+                    href={process.env.NEXT_PUBLIC_HUB_URL || '/'}
                     className="text-gray-400 hover:text-white transition-colors text-sm"
                   >
                     ← Back to Hub
