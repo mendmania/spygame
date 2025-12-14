@@ -220,8 +220,9 @@ export async function startGame(
       };
     }
 
-    // Reset player states
-    const playerUpdates: Record<string, Partial<WerewolfPlayer>> = {};
+    // Reset player states using Firebase multi-path update
+    // Note: These are path-based updates, not object property assignments
+    const playerUpdates: Record<string, unknown> = {};
     for (const pid of playerIds) {
       playerUpdates[`players/${pid}/hasActed`] = false;
       playerUpdates[`players/${pid}/vote`] = null;
@@ -273,78 +274,65 @@ export async function performNightAction({
 }: PerformNightActionRequest): Promise<WerewolfActionResult> {
   try {
     const db = getAdminDatabase();
-    const roomRef = db.ref(`${ROOMS_BASE}/${roomId}`);
+    const roomPath = `${ROOMS_BASE}/${roomId}`;
+    const roomRef = db.ref(roomPath);
+
+    // Read room data first to validate
+    const snapshot = await roomRef.once('value');
+    const roomData = snapshot.val() as WerewolfRoomData | null;
+
+    if (!roomData) {
+      return { success: false, error: 'Room not found' };
+    }
+
+    // Validate game status
+    if (roomData.meta.status !== 'night') {
+      return { success: false, error: 'Night actions can only be performed during night phase' };
+    }
+
+    const player = roomData.players?.[playerId];
+    if (!player) {
+      return { success: false, error: 'Player not found in room' };
+    }
 
     // Special case: werewolf_discover is a non-committing action to check for other werewolves
     // This allows lone werewolves to see they're alone, then decide whether to peek
     const isWerewolfDiscovery = action === 'werewolf_discover';
 
-    // Use transaction to atomically check and set hasActed
-    // Note: Transaction callback may be called multiple times, so we use the
-    // transaction result instead of closure variables for state tracking
-    let capturedRoomData: WerewolfRoomData | null = null;
-    let transactionError: string | null = null;
-
-    const transactionResult = await roomRef.transaction((currentData: WerewolfRoomData | null) => {
-      // Reset error on each invocation (transaction may retry)
-      transactionError = null;
-      
-      if (!currentData) {
-        // Don't set error here - Firebase will retry with actual data
-        // Returning undefined aborts this attempt but Firebase will retry
-        return undefined;
+    // For werewolf discovery, skip hasActed check (it's read-only discovery)
+    // For all other actions, use transaction on hasActed field to prevent double-action
+    if (!isWerewolfDiscovery) {
+      // Check if already acted (pre-check to fail fast)
+      if (player.hasActed) {
+        return { success: false, error: 'You have already performed your night action' };
       }
 
-      if (currentData.meta.status !== 'night') {
-        transactionError = 'Night actions can only be performed during night phase';
-        return; // Abort
-      }
+      // Use transaction on just the hasActed field for atomic check-and-set
+      const hasActedRef = roomRef.child(`players/${playerId}/hasActed`);
+      const transactionResult = await hasActedRef.transaction((currentHasActed: boolean | null) => {
+        // If already acted, abort
+        if (currentHasActed === true) {
+          return; // Abort transaction
+        }
+        // Set hasActed to true
+        return true;
+      });
 
-      const player = currentData.players?.[playerId];
-      if (!player) {
-        transactionError = 'Player not found in room';
-        return; // Abort
+      if (!transactionResult.committed) {
+        return { success: false, error: 'You have already performed your night action' };
       }
-
-      // For werewolf discovery, allow re-querying (it's read-only)
-      // For all other actions, check hasActed to prevent double-action
-      if (!isWerewolfDiscovery && player.hasActed) {
-        transactionError = 'You have already performed your night action';
-        return; // Abort
-      }
-
-      // Mark as acted atomically (except for werewolf discovery)
-      if (!isWerewolfDiscovery) {
-        currentData.players[playerId].hasActed = true;
-      }
-      capturedRoomData = JSON.parse(JSON.stringify(currentData));
-      return currentData;
-    });
-
-    // Check transaction result
-    if (!transactionResult.committed) {
-      // Transaction was aborted
-      return { 
-        success: false, 
-        error: transactionError || 'Transaction aborted' 
-      };
     }
-
-    if (!capturedRoomData) {
-      return { success: false, error: 'Failed to capture room data' };
-    }
-
-    const roomData = capturedRoomData;
 
     const originalRole = roomData.roles?.[playerId];
     if (!originalRole) {
       // Revert hasActed if role not found (shouldn't happen)
-      await roomRef.child(`players/${playerId}/hasActed`).set(false);
+      if (!isWerewolfDiscovery) {
+        await roomRef.child(`players/${playerId}/hasActed`).set(false);
+      }
       return { success: false, error: 'Role not assigned' };
     }
 
     // Execute the action and get result
-    // hasActed is already set true by the transaction above
     const result = await executeNightAction({
       roomId,
       playerId,
@@ -356,7 +344,7 @@ export async function performNightAction({
     });
 
     if (!result.success) {
-      // Revert hasActed on error (but only if it was set)
+      // Revert hasActed on error
       if (!isWerewolfDiscovery) {
         await roomRef.child(`players/${playerId}/hasActed`).set(false);
       }
@@ -369,14 +357,12 @@ export async function performNightAction({
       return { success: true, data: result.data };
     }
 
-    // Note: hasActed already set in transaction
-
-    // Store the night action
+    // Store the night action (Firebase doesn't allow undefined, use null instead)
     const nightAction: WerewolfNightAction = {
       playerId,
       role: originalRole,
       action,
-      target,
+      target: target ?? null,
       result: result.data as WerewolfNightActionResult,
       performedAt: Date.now(),
     };
@@ -746,49 +732,35 @@ export async function forceAdvanceToDay(
     const db = getAdminDatabase();
     const roomRef = db.ref(`${ROOMS_BASE}/${roomId}`);
 
-    let transactionError: string | null = null;
-    let transactionSuccess = false;
+    // Pre-read room data
+    const snapshot = await roomRef.once('value');
+    const roomData: WerewolfRoomData | null = snapshot.val();
 
-    await roomRef.transaction((currentData: WerewolfRoomData | null) => {
-      if (!currentData) {
-        transactionError = 'Room not found';
-        return;
-      }
+    if (!roomData) {
+      return { success: false, error: 'Room not found' };
+    }
 
-      // CRITICAL: Check phase INSIDE transaction
-      if (currentData.meta.status !== 'night') {
-        transactionError = 'Can only advance from night phase';
-        return;
-      }
+    // Validate phase
+    if (roomData.meta.status !== 'night') {
+      return { success: false, error: 'Can only advance from night phase' };
+    }
 
-      const player = currentData.players?.[playerId];
-      if (!player?.isHost) {
-        transactionError = 'Only the host can force advance';
-        return;
-      }
+    // Validate host
+    const player = roomData.players?.[playerId];
+    if (!player?.isHost) {
+      return { success: false, error: 'Only the host can force advance' };
+    }
 
-      const discussionTime = currentData.meta.settings?.discussionTime || DEFAULT_DISCUSSION_TIME;
-      const now = Date.now();
-      const dayEndsAt = now + discussionTime * 1000;
+    const discussionTime = roomData.meta.settings?.discussionTime || DEFAULT_DISCUSSION_TIME;
+    const now = Date.now();
+    const dayEndsAt = now + discussionTime * 1000;
 
-      // Atomically update to day phase
-      currentData.meta.status = 'day';
-      if (currentData.state) {
-        currentData.state.currentPhase = 'day';
-        currentData.state.dayEndsAt = dayEndsAt;
-      }
-
-      transactionSuccess = true;
-      return currentData;
+    // Direct update instead of full-room transaction
+    await roomRef.update({
+      'meta/status': 'day',
+      'state/currentPhase': 'day',
+      'state/dayEndsAt': dayEndsAt,
     });
-
-    if (transactionError) {
-      return { success: false, error: transactionError };
-    }
-
-    if (!transactionSuccess) {
-      return { success: false, error: 'Failed to advance (transaction conflict)' };
-    }
 
     return { success: true };
   } catch (error) {
@@ -826,8 +798,7 @@ async function advanceToDay(roomId: string): Promise<void> {
 /**
  * Advance from day to voting phase (host only)
  * 
- * RACE CONDITION PROTECTION:
- * Uses transaction to ensure phase transition is atomic.
+ * Uses pre-read + direct update for reliable Firebase operations.
  */
 export async function advanceToVoting(
   roomId: string,
@@ -837,54 +808,43 @@ export async function advanceToVoting(
     const db = getAdminDatabase();
     const roomRef = db.ref(`${ROOMS_BASE}/${roomId}`);
 
-    let transactionError: string | null = null;
-    let transactionSuccess = false;
+    // Pre-read room data
+    const snapshot = await roomRef.once('value');
+    const roomData: WerewolfRoomData | null = snapshot.val();
 
-    await roomRef.transaction((currentData: WerewolfRoomData | null) => {
-      if (!currentData) {
-        transactionError = 'Room not found';
-        return;
-      }
-
-      // CRITICAL: Check phase INSIDE transaction
-      if (currentData.meta.status !== 'day') {
-        transactionError = 'Can only advance to voting from day phase';
-        return;
-      }
-
-      const player = currentData.players?.[playerId];
-      if (!player?.isHost) {
-        transactionError = 'Only the host can advance to voting';
-        return;
-      }
-
-      const votingTime = currentData.meta.settings?.votingTime || DEFAULT_VOTING_TIME;
-      const now = Date.now();
-      const votingEndsAt = now + votingTime * 1000;
-
-      // Atomically update phase and reset votes
-      currentData.meta.status = 'voting';
-      if (currentData.state) {
-        currentData.state.currentPhase = 'voting';
-        currentData.state.votingEndsAt = votingEndsAt;
-      }
-
-      // Reset all votes
-      for (const pid of Object.keys(currentData.players || {})) {
-        currentData.players[pid].vote = null;
-      }
-
-      transactionSuccess = true;
-      return currentData;
-    });
-
-    if (transactionError) {
-      return { success: false, error: transactionError };
+    if (!roomData) {
+      return { success: false, error: 'Room not found' };
     }
 
-    if (!transactionSuccess) {
-      return { success: false, error: 'Failed to advance to voting (transaction conflict)' };
+    // Validate phase
+    if (roomData.meta.status !== 'day') {
+      return { success: false, error: 'Can only advance to voting from day phase' };
     }
+
+    // Validate host
+    const player = roomData.players?.[playerId];
+    if (!player?.isHost) {
+      return { success: false, error: 'Only the host can advance to voting' };
+    }
+
+    const votingTime = roomData.meta.settings?.votingTime || DEFAULT_VOTING_TIME;
+    const now = Date.now();
+    const votingEndsAt = now + votingTime * 1000;
+
+    // Build update object - reset all votes to null
+    const updates: Record<string, unknown> = {
+      'meta/status': 'voting',
+      'state/currentPhase': 'voting',
+      'state/votingEndsAt': votingEndsAt,
+    };
+
+    // Reset votes for all players
+    for (const pid of Object.keys(roomData.players || {})) {
+      updates[`players/${pid}/vote`] = null;
+    }
+
+    // Direct update instead of full-room transaction
+    await roomRef.update(updates);
 
     return { success: true };
   } catch (error) {
