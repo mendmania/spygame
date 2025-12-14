@@ -732,49 +732,35 @@ export async function forceAdvanceToDay(
     const db = getAdminDatabase();
     const roomRef = db.ref(`${ROOMS_BASE}/${roomId}`);
 
-    let transactionError: string | null = null;
-    let transactionSuccess = false;
+    // Pre-read room data
+    const snapshot = await roomRef.once('value');
+    const roomData: WerewolfRoomData | null = snapshot.val();
 
-    await roomRef.transaction((currentData: WerewolfRoomData | null) => {
-      if (!currentData) {
-        transactionError = 'Room not found';
-        return;
-      }
+    if (!roomData) {
+      return { success: false, error: 'Room not found' };
+    }
 
-      // CRITICAL: Check phase INSIDE transaction
-      if (currentData.meta.status !== 'night') {
-        transactionError = 'Can only advance from night phase';
-        return;
-      }
+    // Validate phase
+    if (roomData.meta.status !== 'night') {
+      return { success: false, error: 'Can only advance from night phase' };
+    }
 
-      const player = currentData.players?.[playerId];
-      if (!player?.isHost) {
-        transactionError = 'Only the host can force advance';
-        return;
-      }
+    // Validate host
+    const player = roomData.players?.[playerId];
+    if (!player?.isHost) {
+      return { success: false, error: 'Only the host can force advance' };
+    }
 
-      const discussionTime = currentData.meta.settings?.discussionTime || DEFAULT_DISCUSSION_TIME;
-      const now = Date.now();
-      const dayEndsAt = now + discussionTime * 1000;
+    const discussionTime = roomData.meta.settings?.discussionTime || DEFAULT_DISCUSSION_TIME;
+    const now = Date.now();
+    const dayEndsAt = now + discussionTime * 1000;
 
-      // Atomically update to day phase
-      currentData.meta.status = 'day';
-      if (currentData.state) {
-        currentData.state.currentPhase = 'day';
-        currentData.state.dayEndsAt = dayEndsAt;
-      }
-
-      transactionSuccess = true;
-      return currentData;
+    // Direct update instead of full-room transaction
+    await roomRef.update({
+      'meta/status': 'day',
+      'state/currentPhase': 'day',
+      'state/dayEndsAt': dayEndsAt,
     });
-
-    if (transactionError) {
-      return { success: false, error: transactionError };
-    }
-
-    if (!transactionSuccess) {
-      return { success: false, error: 'Failed to advance (transaction conflict)' };
-    }
 
     return { success: true };
   } catch (error) {
@@ -812,8 +798,7 @@ async function advanceToDay(roomId: string): Promise<void> {
 /**
  * Advance from day to voting phase (host only)
  * 
- * RACE CONDITION PROTECTION:
- * Uses transaction to ensure phase transition is atomic.
+ * Uses pre-read + direct update for reliable Firebase operations.
  */
 export async function advanceToVoting(
   roomId: string,
@@ -823,54 +808,43 @@ export async function advanceToVoting(
     const db = getAdminDatabase();
     const roomRef = db.ref(`${ROOMS_BASE}/${roomId}`);
 
-    let transactionError: string | null = null;
-    let transactionSuccess = false;
+    // Pre-read room data
+    const snapshot = await roomRef.once('value');
+    const roomData: WerewolfRoomData | null = snapshot.val();
 
-    await roomRef.transaction((currentData: WerewolfRoomData | null) => {
-      if (!currentData) {
-        transactionError = 'Room not found';
-        return;
-      }
-
-      // CRITICAL: Check phase INSIDE transaction
-      if (currentData.meta.status !== 'day') {
-        transactionError = 'Can only advance to voting from day phase';
-        return;
-      }
-
-      const player = currentData.players?.[playerId];
-      if (!player?.isHost) {
-        transactionError = 'Only the host can advance to voting';
-        return;
-      }
-
-      const votingTime = currentData.meta.settings?.votingTime || DEFAULT_VOTING_TIME;
-      const now = Date.now();
-      const votingEndsAt = now + votingTime * 1000;
-
-      // Atomically update phase and reset votes
-      currentData.meta.status = 'voting';
-      if (currentData.state) {
-        currentData.state.currentPhase = 'voting';
-        currentData.state.votingEndsAt = votingEndsAt;
-      }
-
-      // Reset all votes
-      for (const pid of Object.keys(currentData.players || {})) {
-        currentData.players[pid].vote = null;
-      }
-
-      transactionSuccess = true;
-      return currentData;
-    });
-
-    if (transactionError) {
-      return { success: false, error: transactionError };
+    if (!roomData) {
+      return { success: false, error: 'Room not found' };
     }
 
-    if (!transactionSuccess) {
-      return { success: false, error: 'Failed to advance to voting (transaction conflict)' };
+    // Validate phase
+    if (roomData.meta.status !== 'day') {
+      return { success: false, error: 'Can only advance to voting from day phase' };
     }
+
+    // Validate host
+    const player = roomData.players?.[playerId];
+    if (!player?.isHost) {
+      return { success: false, error: 'Only the host can advance to voting' };
+    }
+
+    const votingTime = roomData.meta.settings?.votingTime || DEFAULT_VOTING_TIME;
+    const now = Date.now();
+    const votingEndsAt = now + votingTime * 1000;
+
+    // Build update object - reset all votes to null
+    const updates: Record<string, unknown> = {
+      'meta/status': 'voting',
+      'state/currentPhase': 'voting',
+      'state/votingEndsAt': votingEndsAt,
+    };
+
+    // Reset votes for all players
+    for (const pid of Object.keys(roomData.players || {})) {
+      updates[`players/${pid}/vote`] = null;
+    }
+
+    // Direct update instead of full-room transaction
+    await roomRef.update(updates);
 
     return { success: true };
   } catch (error) {
