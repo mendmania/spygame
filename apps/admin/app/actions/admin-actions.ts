@@ -26,20 +26,43 @@ export async function getDashboardData(idToken: string): Promise<AdminDashboardD
 
   const db = await getAdminDbRef('adminIndex');
 
+  // Get current date info for time-based stats
+  const now = new Date();
+  const today = now.toISOString().split('T')[0];
+  const currentMonth = today.substring(0, 7); // YYYY-MM
+  
+  // Get Monday of current week
+  const dayOfWeek = now.getDay();
+  const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+  const monday = new Date(now);
+  monday.setDate(now.getDate() + mondayOffset);
+  const weekStart = monday.toISOString().split('T')[0];
+
   // Get analytics
   const analyticsSnapshot = await db.child('analytics').once('value');
   let analytics: AdminAnalytics = analyticsSnapshot.val() || {
     activeRooms: 0,
     activePlayers: 0,
     roomsCreatedToday: 0,
-    lastResetDate: new Date().toISOString().split('T')[0],
+    roomsCreatedThisWeek: 0,
+    roomsCreatedThisMonth: 0,
+    lastResetDate: today,
+    weekStartDate: weekStart,
+    monthStartDate: currentMonth,
   };
 
-  // Check if we need to reset daily counter
-  const today = new Date().toISOString().split('T')[0];
+  // Check if we need to reset counters
   if (analytics.lastResetDate !== today) {
     analytics.roomsCreatedToday = 0;
     analytics.lastResetDate = today;
+  }
+  if (analytics.weekStartDate !== weekStart) {
+    analytics.roomsCreatedThisWeek = 0;
+    analytics.weekStartDate = weekStart;
+  }
+  if (analytics.monthStartDate !== currentMonth) {
+    analytics.roomsCreatedThisMonth = 0;
+    analytics.monthStartDate = currentMonth;
   }
 
   const rooms: AdminDashboardData['rooms'] = [];
@@ -68,6 +91,14 @@ export async function getDashboardData(idToken: string): Promise<AdminDashboardD
 
   let activeRooms = 0;
   let activePlayers = 0;
+  let roomsToday = 0;
+  let roomsThisWeek = 0;
+  let roomsThisMonth = 0;
+
+  // Helper to check creation time
+  const todayStart = new Date(today).getTime();
+  const weekStartTime = new Date(weekStart).getTime();
+  const monthStartTime = new Date(currentMonth + '-01').getTime();
 
   for (const roomId of Object.keys(spyfallRoomsData)) {
     const room = spyfallRoomsData[roomId];
@@ -77,11 +108,17 @@ export async function getDashboardData(idToken: string): Promise<AdminDashboardD
     const playerCount = Object.keys(players).length;
     const status = room.state?.status || 'waiting';
     const isActive = status === 'waiting' || status === 'playing';
+    const createdAt = room.state?.createdAt || Date.now();
 
     if (isActive) {
       activeRooms++;
       activePlayers += playerCount;
     }
+
+    // Count rooms by time period
+    if (createdAt >= todayStart) roomsToday++;
+    if (createdAt >= weekStartTime) roomsThisWeek++;
+    if (createdAt >= monthStartTime) roomsThisMonth++;
 
     // Only add if not already indexed
     if (!indexedRoomIds.has(`spyfall/${roomId}`)) {
@@ -96,10 +133,64 @@ export async function getDashboardData(idToken: string): Promise<AdminDashboardD
         summary: {
           status: status as AdminRoomSummary['status'],
           playerCount,
-          createdAt: room.state?.createdAt || Date.now(),
-          lastActiveAt: room.state?.lastActiveAt || room.state?.createdAt || Date.now(),
+          createdAt,
+          lastActiveAt: room.state?.lastActiveAt || createdAt,
           hostName,
           hostId: hostId || '',
+        },
+      });
+    }
+  }
+
+  // Scan werewolf rooms
+  const werewolfRoomsRef = await getAdminDbRef('games/werewolf/rooms');
+  const werewolfRoomsSnapshot = await werewolfRoomsRef.once('value');
+  const werewolfRoomsData = werewolfRoomsSnapshot.val() || {};
+
+  for (const roomId of Object.keys(werewolfRoomsData)) {
+    const room = werewolfRoomsData[roomId];
+    if (!room) continue;
+
+    const players = room.players || {};
+    const playerCount = Object.keys(players).length;
+    // Werewolf uses meta.status instead of state.status
+    const status = room.meta?.status || 'waiting';
+    const isActive = ['waiting', 'night', 'day', 'voting'].includes(status);
+    const createdAt = room.meta?.createdAt || Date.now();
+
+    if (isActive) {
+      activeRooms++;
+      activePlayers += playerCount;
+    }
+
+    // Count rooms by time period
+    if (createdAt >= todayStart) roomsToday++;
+    if (createdAt >= weekStartTime) roomsThisWeek++;
+    if (createdAt >= monthStartTime) roomsThisMonth++;
+
+    // Only add if not already indexed
+    if (!indexedRoomIds.has(`werewolf/${roomId}`)) {
+      // Get host info - find player with isHost: true
+      let hostId = '';
+      let hostName = 'Unknown';
+      for (const [pid, player] of Object.entries(players) as [string, any][]) {
+        if (player?.isHost) {
+          hostId = pid;
+          hostName = player.name || player.displayName || 'Unknown';
+          break;
+        }
+      }
+
+      rooms.push({
+        game: 'werewolf',
+        roomId,
+        summary: {
+          status: status as AdminRoomSummary['status'],
+          playerCount,
+          createdAt,
+          lastActiveAt: room.meta?.lastActiveAt || createdAt,
+          hostName,
+          hostId,
         },
       });
     }
@@ -110,6 +201,9 @@ export async function getDashboardData(idToken: string): Promise<AdminDashboardD
     ...analytics,
     activeRooms,
     activePlayers,
+    roomsCreatedToday: roomsToday,
+    roomsCreatedThisWeek: roomsThisWeek,
+    roomsCreatedThisMonth: roomsThisMonth,
   };
 
   // Sort by lastActiveAt descending
@@ -134,6 +228,51 @@ export async function getRoomDetails(
   }
 
   const room = snapshot.val();
+
+  // Handle werewolf rooms differently
+  if (game === 'werewolf') {
+    const meta = room.meta || {};
+    const playersData = room.players || {};
+    
+    // Find host from players
+    let hostId = '';
+    for (const [pid, player] of Object.entries(playersData) as [string, any][]) {
+      if (player?.isHost) {
+        hostId = pid;
+        break;
+      }
+    }
+
+    // Build player list with roles
+    const players: AdminPlayerInfo[] = Object.entries(playersData).map(([id, player]: [string, any]) => {
+      return {
+        id,
+        displayName: player.name || player.displayName || 'Unknown',
+        isHost: player.isHost || false,
+        role: player.role || undefined,
+        joinedAt: player.joinedAt,
+      };
+    });
+
+    // Sort: host first, then by name
+    players.sort((a, b) => {
+      if (a.isHost) return -1;
+      if (b.isHost) return 1;
+      return a.displayName.localeCompare(b.displayName);
+    });
+
+    return {
+      roomId,
+      game,
+      status: meta.status || 'waiting',
+      players,
+      createdAt: meta.createdAt || Date.now(),
+      startedAt: meta.startedAt,
+      hostId,
+    };
+  }
+
+  // Original spyfall logic
   const state = room.state || {};
   const playersData = room.players || {};
   const hostId = state.hostId || Object.keys(playersData)[0] || '';
@@ -267,25 +406,37 @@ export async function endGameForRoom(
   try {
     const admin = await requireAdmin(idToken);
 
-    // Update room status in adminIndex
-    const indexRef = await getAdminDbRef(`adminIndex/rooms/${game}/${roomId}`);
-    const indexSnapshot = await indexRef.once('value');
-
-    if (!indexSnapshot.exists()) {
-      return { success: false, message: 'Room not found in index' };
-    }
-
-    const currentSummary = indexSnapshot.val() as AdminRoomSummary;
-
-    if (currentSummary.status !== 'playing') {
-      return { success: false, message: 'Room is not currently playing' };
-    }
-
-    // Update the actual game room state
+    // Get the actual game room to check status
     const gameRoomRef = await getAdminDbRef(`games/${game}/rooms/${roomId}`);
     const gameRoomSnapshot = await gameRoomRef.once('value');
 
-    if (gameRoomSnapshot.exists()) {
+    if (!gameRoomSnapshot.exists()) {
+      return { success: false, message: 'Room not found' };
+    }
+
+    const room = gameRoomSnapshot.val();
+    
+    // Check status based on game type
+    let currentStatus: string;
+    if (game === 'werewolf') {
+      currentStatus = room.meta?.status || 'waiting';
+      const activeStatuses = ['night', 'day', 'voting'];
+      if (!activeStatuses.includes(currentStatus)) {
+        return { success: false, message: 'Room is not currently in an active game phase' };
+      }
+      // Update werewolf room - uses meta.status
+      await gameRoomRef.child('meta').update({
+        status: 'ended',
+        endedByAdmin: true,
+        endedAt: Date.now(),
+        endedBy: admin.uid,
+      });
+    } else {
+      currentStatus = room.state?.status || 'waiting';
+      if (currentStatus !== 'playing') {
+        return { success: false, message: 'Room is not currently playing' };
+      }
+      // Update spyfall room - uses state.status
       await gameRoomRef.child('state').update({
         status: 'finished',
         endedByAdmin: true,
@@ -294,11 +445,15 @@ export async function endGameForRoom(
       });
     }
 
-    // Update index
-    await indexRef.update({
-      status: 'finished',
-      lastActiveAt: Date.now(),
-    });
+    // Update index if it exists
+    const indexRef = await getAdminDbRef(`adminIndex/rooms/${game}/${roomId}`);
+    const indexSnapshot = await indexRef.once('value');
+    if (indexSnapshot.exists()) {
+      await indexRef.update({
+        status: 'finished',
+        lastActiveAt: Date.now(),
+      });
+    }
 
     return { success: true, message: `Game ended for room ${roomId}` };
   } catch (error) {

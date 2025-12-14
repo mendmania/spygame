@@ -2,7 +2,7 @@
 
 export type GameType = 'spyfall' | 'codenames' | 'werewolf';
 
-export type RoomStatus = 'waiting' | 'playing' | 'finished' | 'closed';
+export type RoomStatus = 'waiting' | 'playing' | 'finished' | 'closed' | 'night' | 'day' | 'voting' | 'ended';
 
 // Room summary stored in /adminIndex/rooms/{game}/{roomId}
 export interface AdminRoomSummary {
@@ -19,7 +19,11 @@ export interface AdminAnalytics {
   activeRooms: number;
   activePlayers: number;
   roomsCreatedToday: number;
+  roomsCreatedThisWeek: number;
+  roomsCreatedThisMonth: number;
   lastResetDate: string; // YYYY-MM-DD
+  weekStartDate: string; // YYYY-MM-DD (Monday of current week)
+  monthStartDate: string; // YYYY-MM (current month)
 }
 
 // Player info for admin view

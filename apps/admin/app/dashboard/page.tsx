@@ -6,11 +6,12 @@ import { useAdminAuth } from '@/hooks/useAdminAuth';
 import {
   getDashboardData,
   getRoomDetails,
-  closeRoom,
   endGameForRoom,
   deleteRoom,
 } from '@/app/actions/admin-actions';
 import type { AdminDashboardData, AdminRoomDetail, GameType } from '@/types';
+
+const ROOMS_PER_PAGE = 10;
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -22,6 +23,7 @@ export default function DashboardPage() {
   const [filter, setFilter] = useState<'all' | GameType>('all');
   const [selectedRoom, setSelectedRoom] = useState<AdminRoomDetail | null>(null);
   const [loadingRoom, setLoadingRoom] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
   const dataLoadedRef = useRef(false);
 
   // Load dashboard data
@@ -65,30 +67,6 @@ export default function DashboardPage() {
       setActionError(err instanceof Error ? err.message : 'Failed to load room details');
     } finally {
       setLoadingRoom(false);
-    }
-  };
-
-  // Handle close room
-  const handleCloseRoom = async (game: GameType, roomId: string) => {
-    if (!confirm(`Are you sure you want to close room ${roomId}?`)) return;
-
-    setActionLoading(`close-${roomId}`);
-    setActionError(null);
-
-    try {
-      const token = await getToken();
-      if (!token) throw new Error('Not authenticated');
-
-      const result = await closeRoom(token, game, roomId);
-      if (!result.success) {
-        setActionError(result.message);
-      } else {
-        await loadData(); // Refresh data
-      }
-    } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Failed to close room');
-    } finally {
-      setActionLoading(null);
     }
   };
 
@@ -173,10 +151,26 @@ export default function DashboardPage() {
     (room) => filter === 'all' || room.game === filter
   ) || [];
 
+  // Pagination
+  const totalPages = Math.ceil(filteredRooms.length / ROOMS_PER_PAGE);
+  const paginatedRooms = filteredRooms.slice(
+    (currentPage - 1) * ROOMS_PER_PAGE,
+    currentPage * ROOMS_PER_PAGE
+  );
+
+  // Reset page when filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filter]);
+
   const statusColors: Record<string, string> = {
     waiting: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
     playing: 'bg-green-500/20 text-green-400 border-green-500/30',
+    night: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
+    day: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+    voting: 'bg-orange-500/20 text-orange-400 border-orange-500/30',
     finished: 'bg-gray-500/20 text-gray-400 border-gray-500/30',
+    ended: 'bg-gray-500/20 text-gray-400 border-gray-500/30',
     closed: 'bg-red-500/20 text-red-400 border-red-500/30',
   };
 
@@ -213,30 +207,42 @@ export default function DashboardPage() {
         )}
 
         {/* Analytics Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-gray-900 rounded-lg p-6 border border-gray-800">
-            <div className="text-3xl font-bold text-white mb-1">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
+          <div className="bg-gray-900 rounded-lg p-4 border border-gray-800">
+            <div className="text-2xl font-bold text-white mb-1">
               {dashboardData?.analytics.activeRooms || 0}
             </div>
-            <div className="text-gray-400 text-sm">Active Rooms</div>
+            <div className="text-gray-400 text-xs">Active Rooms</div>
           </div>
-          <div className="bg-gray-900 rounded-lg p-6 border border-gray-800">
-            <div className="text-3xl font-bold text-white mb-1">
+          <div className="bg-gray-900 rounded-lg p-4 border border-gray-800">
+            <div className="text-2xl font-bold text-white mb-1">
               {dashboardData?.analytics.activePlayers || 0}
             </div>
-            <div className="text-gray-400 text-sm">Active Players</div>
+            <div className="text-gray-400 text-xs">Active Players</div>
           </div>
-          <div className="bg-gray-900 rounded-lg p-6 border border-gray-800">
-            <div className="text-3xl font-bold text-white mb-1">
+          <div className="bg-gray-900 rounded-lg p-4 border border-gray-800">
+            <div className="text-2xl font-bold text-green-400 mb-1">
               {dashboardData?.analytics.roomsCreatedToday || 0}
             </div>
-            <div className="text-gray-400 text-sm">Rooms Created Today</div>
+            <div className="text-gray-400 text-xs">Rooms Today</div>
           </div>
-          <div className="bg-gray-900 rounded-lg p-6 border border-gray-800">
-            <div className="text-3xl font-bold text-white mb-1">
+          <div className="bg-gray-900 rounded-lg p-4 border border-gray-800">
+            <div className="text-2xl font-bold text-blue-400 mb-1">
+              {dashboardData?.analytics.roomsCreatedThisWeek || 0}
+            </div>
+            <div className="text-gray-400 text-xs">Rooms This Week</div>
+          </div>
+          <div className="bg-gray-900 rounded-lg p-4 border border-gray-800">
+            <div className="text-2xl font-bold text-purple-400 mb-1">
+              {dashboardData?.analytics.roomsCreatedThisMonth || 0}
+            </div>
+            <div className="text-gray-400 text-xs">Rooms This Month</div>
+          </div>
+          <div className="bg-gray-900 rounded-lg p-4 border border-gray-800">
+            <div className="text-2xl font-bold text-white mb-1">
               {dashboardData?.rooms.length || 0}
             </div>
-            <div className="text-gray-400 text-sm">Total Rooms</div>
+            <div className="text-gray-400 text-xs">Total Rooms</div>
           </div>
         </div>
 
@@ -292,14 +298,14 @@ export default function DashboardPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-800">
-              {filteredRooms.length === 0 ? (
+              {paginatedRooms.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-6 py-12 text-center text-gray-500">
                     No rooms found
                   </td>
                 </tr>
               ) : (
-                filteredRooms.map(({ game, roomId, summary }) => (
+                paginatedRooms.map(({ game, roomId, summary }) => (
                   <tr key={`${game}-${roomId}`} className="hover:bg-gray-800/30">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="font-mono text-sm">{roomId}</span>
@@ -331,22 +337,13 @@ export default function DashboardPage() {
                         >
                           View
                         </button>
-                        {summary.status === 'playing' && (
+                        {['playing', 'night', 'day', 'voting'].includes(summary.status) && (
                           <button
                             onClick={() => handleEndGame(game, roomId)}
                             disabled={actionLoading === `end-${roomId}`}
                             className="px-3 py-1 bg-yellow-600 hover:bg-yellow-700 rounded text-xs transition-colors disabled:opacity-50"
                           >
                             {actionLoading === `end-${roomId}` ? '...' : 'End Game'}
-                          </button>
-                        )}
-                        {(summary.status === 'waiting' || summary.status === 'playing') && (
-                          <button
-                            onClick={() => handleCloseRoom(game, roomId)}
-                            disabled={actionLoading === `close-${roomId}`}
-                            className="px-3 py-1 bg-orange-600 hover:bg-orange-700 rounded text-xs transition-colors disabled:opacity-50"
-                          >
-                            {actionLoading === `close-${roomId}` ? '...' : 'Close'}
                           </button>
                         )}
                         <button
@@ -363,6 +360,50 @@ export default function DashboardPage() {
               )}
             </tbody>
           </table>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="px-6 py-4 border-t border-gray-800 flex items-center justify-between">
+              <div className="text-sm text-gray-400">
+                Showing {(currentPage - 1) * ROOMS_PER_PAGE + 1} to{' '}
+                {Math.min(currentPage * ROOMS_PER_PAGE, filteredRooms.length)} of{' '}
+                {filteredRooms.length} rooms
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setCurrentPage(1)}
+                  disabled={currentPage === 1}
+                  className="px-3 py-1 bg-gray-800 hover:bg-gray-700 rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  First
+                </button>
+                <button
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="px-3 py-1 bg-gray-800 hover:bg-gray-700 rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Prev
+                </button>
+                <span className="px-3 py-1 text-sm text-gray-400">
+                  Page {currentPage} of {totalPages}
+                </span>
+                <button
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  className="px-3 py-1 bg-gray-800 hover:bg-gray-700 rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Next
+                </button>
+                <button
+                  onClick={() => setCurrentPage(totalPages)}
+                  disabled={currentPage === totalPages}
+                  className="px-3 py-1 bg-gray-800 hover:bg-gray-700 rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Last
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Room Details Modal */}
