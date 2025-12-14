@@ -200,18 +200,12 @@ export function useWerewolfRoom({
     const unsubscribe = subscribe<WerewolfRoomData>(
       getRoomPath(roomId),
       (data) => {
-        console.log('[useWerewolfRoom] Room data:', data?.meta?.status);
         setRoomData(data);
         setLoading(false);
         
         if (!data) {
           setError('Room not found');
         }
-      },
-      (err) => {
-        console.error('[useWerewolfRoom] Subscribe error:', err);
-        setError(err.message);
-        setLoading(false);
       }
     );
 
@@ -232,11 +226,7 @@ export function useWerewolfRoom({
     const unsubscribe = subscribe<WerewolfPrivatePlayerData>(
       getPrivatePlayerDataPath(roomId, playerId),
       (data) => {
-        console.log('[useWerewolfRoom] Private data:', data?.originalRole);
         setPrivatePlayerData(data);
-      },
-      (err) => {
-        console.error('[useWerewolfRoom] Private data error:', err);
       }
     );
 
@@ -267,9 +257,6 @@ export function useWerewolfRoom({
             }
           } else {
             setJoinBlockedReason(null);
-            if (result.isReconnect) {
-              console.log('[useWerewolfRoom] Reconnected to existing session');
-            }
           }
         } else {
           // Create room if it doesn't exist
@@ -391,8 +378,11 @@ export function useWerewolfRoom({
     action: NightActionType,
     target?: string | string[]
   ): Promise<WerewolfActionResult> => {
-    if (!playerId) return { success: false, error: 'Not authenticated' };
-    return performNightActionAction({ roomId, playerId, action, target });
+    if (!playerId) {
+      return { success: false, error: 'Not authenticated' };
+    }
+    const result = await performNightActionAction({ roomId, playerId, action, target });
+    return result;
   }, [roomId, playerId]);
 
   const skipNightAction = useCallback(async (): Promise<WerewolfActionResult> => {

@@ -64,7 +64,7 @@ export function useCurrentPlayerRole({
       actionDescription: originalConfig?.actionDescription || null,
       wasSwapped: originalRole !== currentRole && currentRole !== null,
       isWerewolf: currentRole === 'werewolf',
-      isVillageTeam: currentConfig?.team === 'village' ?? false,
+      isVillageTeam: currentConfig?.team === 'village',
     };
   }, [originalRole, currentRole]);
 }

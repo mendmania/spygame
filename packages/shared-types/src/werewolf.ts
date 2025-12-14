@@ -277,7 +277,7 @@ export interface WerewolfNightAction {
   playerId: string;
   role: WerewolfRole;
   action: NightActionType;
-  target?: string | string[];  // PlayerId(s) or center card indices
+  target?: string | string[] | null;  // PlayerId(s) or center card indices (null for actions without targets)
   result?: WerewolfNightActionResult;
   performedAt: number;
 }

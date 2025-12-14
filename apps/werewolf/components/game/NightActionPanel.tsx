@@ -179,6 +179,8 @@ function WerewolfAction({
   const [discoveryResult, setDiscoveryResult] = useState<WerewolfNightActionResult | null>(null);
   // Loading state for discovery
   const [isDiscovering, setIsDiscovering] = useState(false);
+  // Local state to prevent double submission
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   // Use persisted nightResult if available, otherwise use local discovery result
   const effectiveResult = nightResult || discoveryResult;
@@ -208,7 +210,10 @@ function WerewolfAction({
         </p>
         <button
           className={styles.actionButton}
-          onClick={handleOpenEyes}
+          onClick={(e) => {
+            e.preventDefault();
+            handleOpenEyes();
+          }}
           disabled={isPerforming}
         >
           👀 Open Eyes
@@ -237,6 +242,16 @@ function WerewolfAction({
     // If this was discovery, need to confirm; if action complete, show result
     const isDiscovery = effectiveResult.isDiscoveryOnly;
     
+    const handleConfirm = async () => {
+      if (isSubmitting || isPerforming) return;
+      setIsSubmitting(true);
+      try {
+        await onPerformAction('none');
+      } finally {
+        setIsSubmitting(false);
+      }
+    };
+    
     return (
       <div className={styles.actionContent}>
         <p className={styles.info}>You see other werewolves in the room:</p>
@@ -250,10 +265,10 @@ function WerewolfAction({
         {isDiscovery ? (
           <button
             className={styles.actionButton}
-            onClick={() => onPerformAction('none')}
-            disabled={isPerforming}
+            onClick={handleConfirm}
+            disabled={isPerforming || isSubmitting}
           >
-            {isPerforming ? 'Confirming...' : 'Got it, close eyes'}
+            {isPerforming || isSubmitting ? 'Confirming...' : 'Got it, close eyes'}
           </button>
         ) : (
           <p className={styles.hint}>Your action is complete. Close your eyes.</p>
@@ -279,6 +294,27 @@ function WerewolfAction({
     );
   }
 
+  // Handlers for Phase 2c
+  const handlePeek = async () => {
+    if (isSubmitting || isPerforming || selectedCenterCards.length === 0) return;
+    setIsSubmitting(true);
+    try {
+      await onPerformAction('werewolf_peek', selectedCenterCards[0]?.toString());
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleSkip = async () => {
+    if (isSubmitting || isPerforming) return;
+    setIsSubmitting(true);
+    try {
+      await onSkip();
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   // Phase 2c: Lone werewolf - discovered they're alone, can now peek or skip
   return (
     <div className={styles.actionContent}>
@@ -289,6 +325,7 @@ function WerewolfAction({
             key={idx}
             className={`${styles.centerCard} ${selectedCenterCards.includes(idx) ? styles.selected : ''}`}
             onClick={() => onSelectCenterCard(idx)}
+            disabled={isSubmitting || isPerforming}
           >
             Card {idx + 1}
           </button>
@@ -297,15 +334,15 @@ function WerewolfAction({
       <div className={styles.buttonGroup}>
         <button
           className={styles.actionButton}
-          onClick={() => onPerformAction('werewolf_peek', selectedCenterCards[0]?.toString())}
-          disabled={isPerforming || selectedCenterCards.length === 0}
+          onClick={handlePeek}
+          disabled={isPerforming || isSubmitting || selectedCenterCards.length === 0}
         >
-          {isPerforming ? 'Peeking...' : 'Peek'}
+          {isPerforming || isSubmitting ? 'Peeking...' : 'Peek'}
         </button>
         <button
           className={styles.skipButton}
-          onClick={onSkip}
-          disabled={isPerforming}
+          onClick={handleSkip}
+          disabled={isPerforming || isSubmitting}
         >
           Skip (No Peek)
         </button>
@@ -336,6 +373,8 @@ function SeerAction({
   onPerformAction: (action: NightActionType, target?: string | string[]) => Promise<WerewolfActionResult>;
   isPerforming: boolean;
 }) {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const toggleCenterCard = (idx: number) => {
     setSelectedCenterCards(
       selectedCenterCards.includes(idx)
@@ -346,19 +385,47 @@ function SeerAction({
     );
   };
 
+  const handleViewPlayer = async () => {
+    if (isSubmitting || isPerforming || !selectedTarget) return;
+    setIsSubmitting(true);
+    try {
+      await onPerformAction('seer_player', selectedTarget);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleViewCenter = async () => {
+    if (isSubmitting || isPerforming || selectedCenterCards.length !== 2) return;
+    setIsSubmitting(true);
+    try {
+      await onPerformAction('seer_center', selectedCenterCards.map(String));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const isBusy = isPerforming || isSubmitting;
+
   return (
     <div className={styles.actionContent}>
       {!actionMode && (
         <div className={styles.modeSelect}>
           <button
             className={styles.modeButton}
-            onClick={() => setActionMode('player')}
+            onClick={() => {
+              setActionMode('player');
+            }}
+            disabled={isBusy}
           >
             👤 Look at a Player's Card
           </button>
           <button
             className={styles.modeButton}
-            onClick={() => setActionMode('center')}
+            onClick={() => {
+              setActionMode('center');
+            }}
+            disabled={isBusy}
           >
             🎴 Look at 2 Center Cards
           </button>
@@ -374,6 +441,7 @@ function SeerAction({
                 key={p.id}
                 className={`${styles.playerButton} ${selectedTarget === p.id ? styles.selected : ''}`}
                 onClick={() => setSelectedTarget(p.id)}
+                disabled={isBusy}
               >
                 {p.displayName}
               </button>
@@ -382,14 +450,15 @@ function SeerAction({
           <div className={styles.buttonGroup}>
             <button
               className={styles.actionButton}
-              onClick={() => onPerformAction('seer_player', selectedTarget!)}
-              disabled={isPerforming || !selectedTarget}
+              onClick={handleViewPlayer}
+              disabled={isBusy || !selectedTarget}
             >
-              {isPerforming ? 'Looking...' : 'View Card'}
+              {isBusy ? 'Looking...' : 'View Card'}
             </button>
             <button
               className={styles.backButton}
               onClick={() => { setActionMode(null); setSelectedTarget(null); }}
+              disabled={isBusy}
             >
               Back
             </button>
@@ -406,6 +475,7 @@ function SeerAction({
                 key={idx}
                 className={`${styles.centerCard} ${selectedCenterCards.includes(idx) ? styles.selected : ''}`}
                 onClick={() => toggleCenterCard(idx)}
+                disabled={isBusy}
               >
                 Card {idx + 1}
               </button>
@@ -414,14 +484,15 @@ function SeerAction({
           <div className={styles.buttonGroup}>
             <button
               className={styles.actionButton}
-              onClick={() => onPerformAction('seer_center', selectedCenterCards.map(String))}
-              disabled={isPerforming || selectedCenterCards.length !== 2}
+              onClick={handleViewCenter}
+              disabled={isBusy || selectedCenterCards.length !== 2}
             >
-              {isPerforming ? 'Looking...' : 'View Cards'}
+              {isBusy ? 'Looking...' : 'View Cards'}
             </button>
             <button
               className={styles.backButton}
               onClick={() => { setActionMode(null); setSelectedCenterCards([]); }}
+              disabled={isBusy}
             >
               Back
             </button>
@@ -448,6 +519,29 @@ function RobberAction({
   onSkip: () => Promise<WerewolfActionResult>;
   isPerforming: boolean;
 }) {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const isBusy = isPerforming || isSubmitting;
+
+  const handleSwap = async () => {
+    if (isBusy || !selectedTarget) return;
+    setIsSubmitting(true);
+    try {
+      await onPerformAction('robber_swap', selectedTarget);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleSkip = async () => {
+    if (isBusy) return;
+    setIsSubmitting(true);
+    try {
+      await onSkip();
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <div className={styles.actionContent}>
       <p className={styles.info}>Select a player to swap cards with:</p>
@@ -457,6 +551,7 @@ function RobberAction({
             key={p.id}
             className={`${styles.playerButton} ${selectedTarget === p.id ? styles.selected : ''}`}
             onClick={() => setSelectedTarget(p.id)}
+            disabled={isBusy}
           >
             {p.displayName}
           </button>
@@ -465,15 +560,15 @@ function RobberAction({
       <div className={styles.buttonGroup}>
         <button
           className={styles.actionButton}
-          onClick={() => onPerformAction('robber_swap', selectedTarget!)}
-          disabled={isPerforming || !selectedTarget}
+          onClick={handleSwap}
+          disabled={isBusy || !selectedTarget}
         >
-          {isPerforming ? 'Swapping...' : 'Swap'}
+          {isBusy ? 'Swapping...' : 'Swap'}
         </button>
         <button
           className={styles.skipButton}
-          onClick={onSkip}
-          disabled={isPerforming}
+          onClick={handleSkip}
+          disabled={isBusy}
         >
           Skip (Keep Role)
         </button>
@@ -498,7 +593,11 @@ function TroublemakerAction({
   onSkip: () => Promise<WerewolfActionResult>;
   isPerforming: boolean;
 }) {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const isBusy = isPerforming || isSubmitting;
+
   const toggleTarget = (id: string) => {
+    if (isBusy) return;
     setSelectedTargets(
       selectedTargets.includes(id)
         ? selectedTargets.filter((t) => t !== id)
@@ -506,6 +605,26 @@ function TroublemakerAction({
           ? [...selectedTargets, id]
           : selectedTargets
     );
+  };
+
+  const handleSwap = async () => {
+    if (isBusy || selectedTargets.length !== 2) return;
+    setIsSubmitting(true);
+    try {
+      await onPerformAction('troublemaker_swap', selectedTargets);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleSkip = async () => {
+    if (isBusy) return;
+    setIsSubmitting(true);
+    try {
+      await onSkip();
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -517,6 +636,7 @@ function TroublemakerAction({
             key={p.id}
             className={`${styles.playerButton} ${selectedTargets.includes(p.id) ? styles.selected : ''}`}
             onClick={() => toggleTarget(p.id)}
+            disabled={isBusy}
           >
             {p.displayName}
             {selectedTargets.indexOf(p.id) >= 0 && (
@@ -530,15 +650,15 @@ function TroublemakerAction({
       <div className={styles.buttonGroup}>
         <button
           className={styles.actionButton}
-          onClick={() => onPerformAction('troublemaker_swap', selectedTargets)}
-          disabled={isPerforming || selectedTargets.length !== 2}
+          onClick={handleSwap}
+          disabled={isBusy || selectedTargets.length !== 2}
         >
-          {isPerforming ? 'Swapping...' : 'Swap'}
+          {isBusy ? 'Swapping...' : 'Swap'}
         </button>
         <button
           className={styles.skipButton}
-          onClick={onSkip}
-          disabled={isPerforming}
+          onClick={handleSkip}
+          disabled={isBusy}
         >
           Skip (No Swap)
         </button>
@@ -561,6 +681,19 @@ function MinionAction({
   onPerformAction: (action: NightActionType, target?: string | string[]) => Promise<WerewolfActionResult>;
   isPerforming: boolean;
 }) {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const isBusy = isPerforming || isSubmitting;
+
+  const handleAction = async () => {
+    if (isBusy) return;
+    setIsSubmitting(true);
+    try {
+      await onPerformAction('minion_see');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <div className={styles.actionContent}>
       <p className={styles.info}>
@@ -573,10 +706,10 @@ function MinionAction({
       </p>
       <button
         className={styles.actionButton}
-        onClick={() => onPerformAction('minion_see')}
-        disabled={isPerforming}
+        onClick={handleAction}
+        disabled={isBusy}
       >
-        {isPerforming ? 'Looking...' : 'See Werewolves'}
+        {isBusy ? 'Looking...' : 'See Werewolves'}
       </button>
     </div>
   );
@@ -592,6 +725,19 @@ function MasonAction({
   onPerformAction: (action: NightActionType, target?: string | string[]) => Promise<WerewolfActionResult>;
   isPerforming: boolean;
 }) {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const isBusy = isPerforming || isSubmitting;
+
+  const handleAction = async () => {
+    if (isBusy) return;
+    setIsSubmitting(true);
+    try {
+      await onPerformAction('mason_see');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <div className={styles.actionContent}>
       <p className={styles.info}>
@@ -600,10 +746,10 @@ function MasonAction({
       </p>
       <button
         className={styles.actionButton}
-        onClick={() => onPerformAction('mason_see')}
-        disabled={isPerforming}
+        onClick={handleAction}
+        disabled={isBusy}
       >
-        {isPerforming ? 'Looking...' : 'Find Other Mason'}
+        {isBusy ? 'Looking...' : 'Find Other Mason'}
       </button>
     </div>
   );
@@ -621,6 +767,19 @@ function DrunkAction({
   onPerformAction: (action: NightActionType, target?: string | string[]) => Promise<WerewolfActionResult>;
   isPerforming: boolean;
 }) {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const isBusy = isPerforming || isSubmitting;
+
+  const handleSwap = async () => {
+    if (isBusy || selectedCenterCards.length === 0) return;
+    setIsSubmitting(true);
+    try {
+      await onPerformAction('drunk_swap', selectedCenterCards[0]?.toString());
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <div className={styles.actionContent}>
       <p className={styles.info}>
@@ -633,6 +792,7 @@ function DrunkAction({
             key={idx}
             className={`${styles.centerCard} ${selectedCenterCards.includes(idx) ? styles.selected : ''}`}
             onClick={() => onSelectCenterCard(idx)}
+            disabled={isBusy}
           >
             Card {idx + 1}
           </button>
@@ -640,10 +800,10 @@ function DrunkAction({
       </div>
       <button
         className={styles.actionButton}
-        onClick={() => onPerformAction('drunk_swap', selectedCenterCards[0]?.toString())}
-        disabled={isPerforming || selectedCenterCards.length === 0}
+        onClick={handleSwap}
+        disabled={isBusy || selectedCenterCards.length === 0}
       >
-        {isPerforming ? 'Swapping...' : 'Swap'}
+        {isBusy ? 'Swapping...' : 'Swap'}
       </button>
     </div>
   );
@@ -657,6 +817,19 @@ function InsomniacAction({
   onPerformAction: (action: NightActionType, target?: string | string[]) => Promise<WerewolfActionResult>;
   isPerforming: boolean;
 }) {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const isBusy = isPerforming || isSubmitting;
+
+  const handleAction = async () => {
+    if (isBusy) return;
+    setIsSubmitting(true);
+    try {
+      await onPerformAction('insomniac_check');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <div className={styles.actionContent}>
       <p className={styles.info}>
@@ -665,10 +838,10 @@ function InsomniacAction({
       </p>
       <button
         className={styles.actionButton}
-        onClick={() => onPerformAction('insomniac_check')}
-        disabled={isPerforming}
+        onClick={handleAction}
+        disabled={isBusy}
       >
-        {isPerforming ? 'Checking...' : 'Check My Card'}
+        {isBusy ? 'Checking...' : 'Check My Card'}
       </button>
     </div>
   );
@@ -682,15 +855,28 @@ function VillagerAction({
   onSkip: () => Promise<WerewolfActionResult>;
   isPerforming: boolean;
 }) {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const isBusy = isPerforming || isSubmitting;
+
+  const handleAction = async () => {
+    if (isBusy) return;
+    setIsSubmitting(true);
+    try {
+      await onSkip();
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <div className={styles.actionContent}>
       <p className={styles.info}>You have no special night action. Rest well!</p>
       <button
         className={styles.actionButton}
-        onClick={onSkip}
-        disabled={isPerforming}
+        onClick={handleAction}
+        disabled={isBusy}
       >
-        {isPerforming ? 'Confirming...' : 'Continue'}
+        {isBusy ? 'Confirming...' : 'Continue'}
       </button>
     </div>
   );

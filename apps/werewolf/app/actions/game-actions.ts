@@ -220,8 +220,9 @@ export async function startGame(
       };
     }
 
-    // Reset player states
-    const playerUpdates: Record<string, Partial<WerewolfPlayer>> = {};
+    // Reset player states using Firebase multi-path update
+    // Note: These are path-based updates, not object property assignments
+    const playerUpdates: Record<string, unknown> = {};
     for (const pid of playerIds) {
       playerUpdates[`players/${pid}/hasActed`] = false;
       playerUpdates[`players/${pid}/vote`] = null;
@@ -273,78 +274,65 @@ export async function performNightAction({
 }: PerformNightActionRequest): Promise<WerewolfActionResult> {
   try {
     const db = getAdminDatabase();
-    const roomRef = db.ref(`${ROOMS_BASE}/${roomId}`);
+    const roomPath = `${ROOMS_BASE}/${roomId}`;
+    const roomRef = db.ref(roomPath);
+
+    // Read room data first to validate
+    const snapshot = await roomRef.once('value');
+    const roomData = snapshot.val() as WerewolfRoomData | null;
+
+    if (!roomData) {
+      return { success: false, error: 'Room not found' };
+    }
+
+    // Validate game status
+    if (roomData.meta.status !== 'night') {
+      return { success: false, error: 'Night actions can only be performed during night phase' };
+    }
+
+    const player = roomData.players?.[playerId];
+    if (!player) {
+      return { success: false, error: 'Player not found in room' };
+    }
 
     // Special case: werewolf_discover is a non-committing action to check for other werewolves
     // This allows lone werewolves to see they're alone, then decide whether to peek
     const isWerewolfDiscovery = action === 'werewolf_discover';
 
-    // Use transaction to atomically check and set hasActed
-    // Note: Transaction callback may be called multiple times, so we use the
-    // transaction result instead of closure variables for state tracking
-    let capturedRoomData: WerewolfRoomData | null = null;
-    let transactionError: string | null = null;
-
-    const transactionResult = await roomRef.transaction((currentData: WerewolfRoomData | null) => {
-      // Reset error on each invocation (transaction may retry)
-      transactionError = null;
-      
-      if (!currentData) {
-        // Don't set error here - Firebase will retry with actual data
-        // Returning undefined aborts this attempt but Firebase will retry
-        return undefined;
+    // For werewolf discovery, skip hasActed check (it's read-only discovery)
+    // For all other actions, use transaction on hasActed field to prevent double-action
+    if (!isWerewolfDiscovery) {
+      // Check if already acted (pre-check to fail fast)
+      if (player.hasActed) {
+        return { success: false, error: 'You have already performed your night action' };
       }
 
-      if (currentData.meta.status !== 'night') {
-        transactionError = 'Night actions can only be performed during night phase';
-        return; // Abort
-      }
+      // Use transaction on just the hasActed field for atomic check-and-set
+      const hasActedRef = roomRef.child(`players/${playerId}/hasActed`);
+      const transactionResult = await hasActedRef.transaction((currentHasActed: boolean | null) => {
+        // If already acted, abort
+        if (currentHasActed === true) {
+          return; // Abort transaction
+        }
+        // Set hasActed to true
+        return true;
+      });
 
-      const player = currentData.players?.[playerId];
-      if (!player) {
-        transactionError = 'Player not found in room';
-        return; // Abort
+      if (!transactionResult.committed) {
+        return { success: false, error: 'You have already performed your night action' };
       }
-
-      // For werewolf discovery, allow re-querying (it's read-only)
-      // For all other actions, check hasActed to prevent double-action
-      if (!isWerewolfDiscovery && player.hasActed) {
-        transactionError = 'You have already performed your night action';
-        return; // Abort
-      }
-
-      // Mark as acted atomically (except for werewolf discovery)
-      if (!isWerewolfDiscovery) {
-        currentData.players[playerId].hasActed = true;
-      }
-      capturedRoomData = JSON.parse(JSON.stringify(currentData));
-      return currentData;
-    });
-
-    // Check transaction result
-    if (!transactionResult.committed) {
-      // Transaction was aborted
-      return { 
-        success: false, 
-        error: transactionError || 'Transaction aborted' 
-      };
     }
-
-    if (!capturedRoomData) {
-      return { success: false, error: 'Failed to capture room data' };
-    }
-
-    const roomData = capturedRoomData;
 
     const originalRole = roomData.roles?.[playerId];
     if (!originalRole) {
       // Revert hasActed if role not found (shouldn't happen)
-      await roomRef.child(`players/${playerId}/hasActed`).set(false);
+      if (!isWerewolfDiscovery) {
+        await roomRef.child(`players/${playerId}/hasActed`).set(false);
+      }
       return { success: false, error: 'Role not assigned' };
     }
 
     // Execute the action and get result
-    // hasActed is already set true by the transaction above
     const result = await executeNightAction({
       roomId,
       playerId,
@@ -356,7 +344,7 @@ export async function performNightAction({
     });
 
     if (!result.success) {
-      // Revert hasActed on error (but only if it was set)
+      // Revert hasActed on error
       if (!isWerewolfDiscovery) {
         await roomRef.child(`players/${playerId}/hasActed`).set(false);
       }
@@ -369,14 +357,12 @@ export async function performNightAction({
       return { success: true, data: result.data };
     }
 
-    // Note: hasActed already set in transaction
-
-    // Store the night action
+    // Store the night action (Firebase doesn't allow undefined, use null instead)
     const nightAction: WerewolfNightAction = {
       playerId,
       role: originalRole,
       action,
-      target,
+      target: target ?? null,
       result: result.data as WerewolfNightActionResult,
       performedAt: Date.now(),
     };
