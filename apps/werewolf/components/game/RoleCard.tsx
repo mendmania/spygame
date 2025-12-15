@@ -112,19 +112,19 @@ export function RoleCard({
           <button 
             className={styles.detailsButton}
             onClick={handleDetailsClick}
-            onTouchEnd={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              setShowDetails(!showDetails);
-            }}
           >
             {showDetails ? 'Hide Details' : 'Show Details'}
           </button>
 
           {/* Details overlay */}
           {showDetails && (
-            <div className={styles.detailsOverlay}>
-              <span className={styles.roleEmoji}>{emoji}</span>
+            <div 
+              className={styles.detailsOverlay}
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowDetails(false);
+              }}
+            >
               <h2 className={styles.roleName}>{config.name}</h2>
               
               {!isOriginal && (
