@@ -11,7 +11,7 @@
  * - Ended: Results display
  */
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useWerewolfRoom, useCurrentPlayerRole, useNightPhase } from '../../../hooks';
@@ -25,10 +25,85 @@ import {
   type WerewolfPlayerDisplay,
 } from '../../../components/game';
 import { getRoleEmoji } from '../../../constants/roles';
+import type { WerewolfNightActionResult } from '@vbz/shared-types';
 import styles from './page.module.css';
 
 interface RoomPageProps {
   params: { roomId: string };
+}
+
+// Helper component to show night action result summary during day phase
+function NightActionResultSummary({ 
+  result, 
+  players 
+}: { 
+  result: WerewolfNightActionResult; 
+  players: WerewolfPlayerDisplay[];
+}) {
+  const getPlayerName = (id: string) => 
+    players.find(p => p.id === id)?.displayName || 'Unknown';
+
+  const items: string[] = [];
+
+  if (result.skipped) {
+    items.push('You chose to skip your action');
+  }
+  if (result.otherWerewolves && result.otherWerewolves.length > 0) {
+    items.push(`Other werewolf(s): ${result.otherWerewolves.map(getPlayerName).join(', ')}`);
+  }
+  // Check isLoneWolf flag as primary, fallback to checking empty array
+  if (result.isLoneWolf || (result.otherWerewolves && result.otherWerewolves.length === 0)) {
+    items.push('You are the only werewolf');
+  }
+  if (result.centerCardSeen) {
+    items.push(`Center card: ${result.centerCardSeen}`);
+  }
+  if (result.playerRoleSeen) {
+    items.push(`${getPlayerName(result.playerRoleSeen.playerId)} is the ${result.playerRoleSeen.role}`);
+  }
+  if (result.centerCardsSeen) {
+    items.push(`Center cards: ${result.centerCardsSeen.map(c => `Card ${c.index + 1}: ${c.role}`).join(', ')}`);
+  }
+  if (result.newRole) {
+    const robbedName = result.robbedPlayerId ? getPlayerName(result.robbedPlayerId) : null;
+    items.push(robbedName 
+      ? `You robbed ${robbedName} and became: ${result.newRole}`
+      : `Your new role: ${result.newRole}`);
+  }
+  if (result.swappedPlayers) {
+    items.push(`Swapped ${getPlayerName(result.swappedPlayers[0])} ↔ ${getPlayerName(result.swappedPlayers[1])}`);
+  }
+  if (result.werewolvesSeen !== undefined) {
+    items.push(result.werewolvesSeen.length > 0 
+      ? `Werewolf(s): ${result.werewolvesSeen.map(getPlayerName).join(', ')}`
+      : 'There are no werewolves among the players!');
+  }
+  if (result.otherMason !== undefined) {
+    items.push(result.otherMason 
+      ? `Fellow Mason: ${getPlayerName(result.otherMason)}`
+      : 'You are the only Mason');
+  }
+  if (result.centerCardSwapped !== undefined) {
+    items.push(`Drunkenly swapped with Center Card ${result.centerCardSwapped + 1}`);
+  }
+  if (result.finalRole) {
+    items.push(`Your final role: ${result.finalRole}`);
+  }
+  if (result.witchPeekedCard) {
+    items.push(`Peeked at Center Card ${result.witchPeekedCard.index + 1}: ${result.witchPeekedCard.role}${result.witchSwappedWith ? ` → swapped with ${getPlayerName(result.witchSwappedWith)}` : ''}`);
+  }
+
+  if (items.length === 0) {
+    return <p className={styles.reminderText}>No special information discovered.</p>;
+  }
+
+  return (
+    <ul className={styles.reminderList}>
+      {items.map((item, i) => (
+        <li key={i} className={styles.reminderItem}>{item}</li>
+      ))}
+    </ul>
+  );
 }
 
 export default function RoomPage({ params }: RoomPageProps) {
@@ -65,6 +140,9 @@ export default function RoomPage({ params }: RoomPageProps) {
     nightActedCount,
     nightTotalPlayers,
     isNightComplete,
+    votedCount,
+    voteTotalPlayers,
+    isVotingComplete,
     timeRemaining,
     selectedRoles,
     updateSelectedRoles,
@@ -89,6 +167,15 @@ export default function RoomPage({ params }: RoomPageProps) {
   const [isStarting, setIsStarting] = useState(false);
   const [isAdvancing, setIsAdvancing] = useState(false);
   const [votedFor, setVotedFor] = useState<string | null>(null);
+
+  // Reset local state when game resets to waiting phase
+  useEffect(() => {
+    if (isWaiting) {
+      setVotedFor(null);
+      setIsStarting(false);
+      setIsAdvancing(false);
+    }
+  }, [isWaiting]);
 
   // Transform players for display
   const players: WerewolfPlayerDisplay[] = useMemo(() => {
@@ -356,28 +443,14 @@ export default function RoomPage({ params }: RoomPageProps) {
                 showActions={true}
               />
               
-              {/* Night Progress Indicator */}
+              {/* Night Progress Indicator - Don't show count to avoid revealing roles */}
               <div className={styles.nightProgress}>
-                {/* Currently acting role indicator */}
-                {roomState?.activeNightRole && (
-                  <div className={styles.activeRoleIndicator}>
-                    <span className={styles.activeRoleLabel}>Currently Acting:</span>
-                    <span className={styles.activeRoleName}>
-                      {getRoleEmoji(roomState.activeNightRole)} {roomState.activeNightRole.charAt(0).toUpperCase() + roomState.activeNightRole.slice(1)}
-                    </span>
-                  </div>
-                )}
-                <div className={styles.progressLabel}>
-                  Night Actions: {nightActedCount}/{nightTotalPlayers}
-                </div>
-                <div className={styles.progressBar}>
-                  <div 
-                    className={styles.progressFill}
-                    style={{ width: `${nightTotalPlayers > 0 ? (nightActedCount / nightTotalPlayers) * 100 : 0}%` }}
-                  />
-                </div>
-                {isNightComplete && (
+                {isNightComplete ? (
                   <div className={styles.progressComplete}>✓ All players ready</div>
+                ) : (
+                  <div className={styles.progressLabel}>
+                    🌙 Night in progress...
+                  </div>
                 )}
               </div>
               
@@ -407,6 +480,17 @@ export default function RoomPage({ params }: RoomPageProps) {
                 <span className={styles.phaseName}>Night Phase</span>
               </div>
 
+              {roomState?.myOriginalRole && (
+                <div className={styles.roleReveal}>
+                  <span className={styles.roleLabel}>Your Role</span>
+                  <RoleCard
+                    role={roomState.myOriginalRole}
+                    showAction={true}
+                    size="medium"
+                  />
+                </div>
+              )}
+
               <div className={styles.nightContainer}>
                 <h2 className={styles.nightTitle}>Close your eyes...</h2>
                 <p className={styles.nightSubtitle}>
@@ -414,22 +498,12 @@ export default function RoomPage({ params }: RoomPageProps) {
                 </p>
 
                 {roomState?.myOriginalRole && (
-                  <div className={styles.roleReveal}>
-                    <span className={styles.roleLabel}>Your Role</span>
-                    <RoleCard
-                      role={roomState.myOriginalRole}
-                      showAction={true}
-                      size="medium"
-                    />
-                  </div>
-                )}
-
-                {roomState?.myOriginalRole && (
                   <NightActionPanel
                     role={roomState.myOriginalRole}
                     hasActed={roomState.currentPlayer?.hasActed ?? false}
                     nightResult={roomState.nightActionResult}
                     otherPlayers={otherPlayers}
+                    currentPlayerId={playerId}
                     isPerforming={nightPhase.isPerforming}
                     isMyTurn={roomState.isMyTurnToAct}
                     activeNightRole={roomState.activeNightRole}
@@ -485,22 +559,30 @@ export default function RoomPage({ params }: RoomPageProps) {
                 <span className={styles.phaseName}>Day Phase</span>
               </div>
 
+              {roomState?.myCurrentRole && (
+                <div className={styles.roleReveal}>
+                  <span className={styles.roleLabel}>
+                    Your Current Role {roleInfo.wasSwapped && '(Swapped!)'}
+                  </span>
+                  <RoleCard
+                    role={roomState.myCurrentRole}
+                    isOriginal={!roleInfo.wasSwapped}
+                    size="medium"
+                  />
+                </div>
+              )}
+
               <div className={styles.dayContainer}>
                 <h2 className={styles.dayTitle}>Discussion Time!</h2>
                 <p className={styles.daySubtitle}>
                   Talk to each other and figure out who the werewolves are
                 </p>
 
-                {roomState?.myCurrentRole && (
-                  <div className={styles.roleReveal}>
-                    <span className={styles.roleLabel}>
-                      Your Current Role {roleInfo.wasSwapped && '(Swapped!)'}
-                    </span>
-                    <RoleCard
-                      role={roomState.myCurrentRole}
-                      isOriginal={!roleInfo.wasSwapped}
-                      size="medium"
-                    />
+                {/* Show night action result so player remembers what they learned */}
+                {roomState?.nightActionResult && Object.keys(roomState.nightActionResult).length > 0 && (
+                  <div className={styles.nightResultReminder}>
+                    <h4 className={styles.reminderTitle}>🌙 Your Night Discovery</h4>
+                    <NightActionResultSummary result={roomState.nightActionResult} players={players} />
                   </div>
                 )}
 
@@ -530,6 +612,25 @@ export default function RoomPage({ params }: RoomPageProps) {
                   label="Voting Time"
                 />
               )}
+              
+              {/* Vote Progress Indicator */}
+              <div className={styles.nightProgress}>
+                <div className={styles.progressLabel}>
+                  Votes: {votedCount}/{voteTotalPlayers}
+                </div>
+                <div className={styles.progressBar}>
+                  <div 
+                    className={styles.progressFill}
+                    style={{ width: `${voteTotalPlayers > 0 ? (votedCount / voteTotalPlayers) * 100 : 0}%` }}
+                  />
+                </div>
+                {isVotingComplete && (
+                  <div className={styles.progressComplete}>✓ All players have voted</div>
+                )}
+                {!isVotingComplete && votedCount > 0 && (
+                  <div className={styles.progressWaiting}>Waiting for {voteTotalPlayers - votedCount} more vote(s)...</div>
+                )}
+              </div>
               
               {isHost && (
                 <div className={styles.hostControls}>
@@ -564,9 +665,14 @@ export default function RoomPage({ params }: RoomPageProps) {
                   votedForId={votedFor || roomState?.currentPlayer?.vote}
                 />
 
-                {(votedFor || roomState?.currentPlayer?.vote) && (
-                  <p className={styles.votingSubtitle}>
+                {(votedFor || roomState?.currentPlayer?.vote) ? (
+                  <p className={styles.votingConfirmed}>
                     ✓ You voted for {players.find(p => p.id === (votedFor || roomState?.currentPlayer?.vote))?.displayName}
+                    {!isVotingComplete && <span className={styles.waitingText}> — Waiting for other players...</span>}
+                  </p>
+                ) : (
+                  <p className={styles.votingHint}>
+                    👆 Click on a player above to cast your vote
                   </p>
                 )}
               </div>

@@ -331,8 +331,9 @@ export type NightActionType =
   | 'troublemaker_swap'    // Troublemaker swaps 2 players
   | 'minion_see'           // Minion sees werewolves
   | 'mason_see'            // Mason sees other mason
-  | 'witch_peek'           // Witch looks at one center card
+  | 'witch_peek'           // Witch looks at one center card (non-committing)
   | 'witch_swap'           // Witch swaps center card with a player (or self)
+  | 'witch_skip'           // Witch peeked but chose not to swap (commits the peek)
   | 'drunk_swap'           // Drunk swaps with center card
   | 'insomniac_check'      // Insomniac checks own card
   | 'none';                // No action taken (villager, etc)
@@ -355,6 +356,8 @@ export interface WerewolfNightAction {
 export interface WerewolfNightActionResult {
   // For werewolves: other werewolf player IDs
   otherWerewolves?: string[];
+  // For werewolf: indicates if they are the only werewolf
+  isLoneWolf?: boolean;
   // For lone werewolf peek: the center card role
   centerCardSeen?: WerewolfRole;
   // For seer looking at player: the role seen
@@ -363,6 +366,8 @@ export interface WerewolfNightActionResult {
   centerCardsSeen?: { index: number; role: WerewolfRole }[];
   // For robber: the new role they got
   newRole?: WerewolfRole;
+  // For robber: who they robbed
+  robbedPlayerId?: string;
   // For troublemaker: confirmation of swap
   swappedPlayers?: [string, string];
   // For minion: werewolf player IDs (empty if no werewolves)
@@ -379,6 +384,8 @@ export interface WerewolfNightActionResult {
   finalRole?: WerewolfRole;
   // For werewolf_discover: indicates this was just discovery, action not committed
   isDiscoveryOnly?: boolean;
+  // For any role that skipped their action (e.g., troublemaker, seer choosing not to act)
+  skipped?: boolean;
 }
 
 /**

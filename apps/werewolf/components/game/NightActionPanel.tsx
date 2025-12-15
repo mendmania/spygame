@@ -26,6 +26,7 @@ interface NightActionPanelProps {
   hasActed: boolean;
   nightResult: WerewolfNightActionResult | null;
   otherPlayers: Array<{ id: string; displayName: string }>;
+  currentPlayerId: string;              // Current player's ID for self-targeting
   isPerforming: boolean;
   isMyTurn: boolean;                    // NEW: Whether it's this player's turn
   activeNightRole: WerewolfRole | null; // NEW: Currently acting role
@@ -38,6 +39,7 @@ export function NightActionPanel({
   hasActed,
   nightResult,
   otherPlayers,
+  currentPlayerId,
   isPerforming,
   isMyTurn,
   activeNightRole,
@@ -48,18 +50,24 @@ export function NightActionPanel({
   const [selectedTargets, setSelectedTargets] = useState<string[]>([]);
   const [selectedCenterCards, setSelectedCenterCards] = useState<number[]>([]);
   const [actionMode, setActionMode] = useState<'player' | 'center' | null>(null);
+  
+  // Local state to remember that player completed their action this session
+  // This survives server-side hasActed resets when advancing to next role
+  const [completedActionLocally, setCompletedActionLocally] = useState(false);
 
   const config = ROLE_CONFIGS[role];
   const emoji = getRoleEmoji(role);
 
-  // If already acted, show result
-  if (hasActed) {
+  // Check if player has a persisted night result (this survives hasActed reset)
+  // nightResult is stored in privatePlayerData and persists throughout the night
+  const hasPersistedResult = nightResult && Object.keys(nightResult).length > 0 && !nightResult.isDiscoveryOnly;
+
+  // If we have a persisted result OR hasActed is true OR completed locally, show the result screen
+  // This ensures the result stays visible even when hasActed is reset for the next role
+  if (hasActed || hasPersistedResult || completedActionLocally) {
     return (
       <div className={styles.panel}>
-        <div className={styles.header}>
-          <span className={styles.emoji}>{emoji}</span>
-          <h3 className={styles.title}>Night Action Complete</h3>
-        </div>
+        <p className={styles.actionComplete}>✓ Night Action Complete</p>
         <NightActionResult role={role} result={nightResult} otherPlayers={otherPlayers} />
         <p className={styles.waiting}>Waiting for other players...</p>
       </div>
@@ -68,22 +76,10 @@ export function NightActionPanel({
 
   // If it's not this player's turn, show waiting state
   if (!isMyTurn) {
-    const activeRoleConfig = activeNightRole ? ROLE_CONFIGS[activeNightRole] : null;
-    const activeRoleEmoji = activeNightRole ? getRoleEmoji(activeNightRole) : '⏳';
-    
     return (
       <div className={styles.panel}>
-        <div className={styles.header}>
-          <span className={styles.emoji}>{emoji}</span>
-          <h3 className={styles.title}>{config.name}</h3>
-        </div>
         <div className={styles.waitingForTurn}>
           <p className={styles.notYourTurn}>🌙 Not your turn</p>
-          {activeNightRole && activeRoleConfig && (
-            <p className={styles.currentlyActing}>
-              Currently acting: {activeRoleEmoji} {activeRoleConfig.name}
-            </p>
-          )}
           <p className={styles.waitingMessage}>
             Keep your eyes closed. Your turn will come...
           </p>
@@ -91,6 +87,24 @@ export function NightActionPanel({
       </div>
     );
   }
+
+  // Wrap action handlers to track local completion
+  const wrappedPerformAction = async (action: NightActionType, target?: string | string[]) => {
+    const result = await onPerformAction(action, target);
+    // Mark as completed locally if action succeeded and wasn't just discovery
+    if (result.success && action !== 'werewolf_discover' && action !== 'witch_peek') {
+      setCompletedActionLocally(true);
+    }
+    return result;
+  };
+
+  const wrappedSkip = async () => {
+    const result = await onSkip();
+    if (result.success) {
+      setCompletedActionLocally(true);
+    }
+    return result;
+  };
 
   // Role-specific action UI
   const renderActionUI = () => {
@@ -101,8 +115,8 @@ export function NightActionPanel({
           otherPlayers={otherPlayers}
           selectedCenterCards={selectedCenterCards}
           onSelectCenterCard={(idx) => setSelectedCenterCards([idx])}
-          onPerformAction={onPerformAction}
-          onSkip={onSkip}
+          onPerformAction={wrappedPerformAction}
+          onSkip={wrappedSkip}
           isPerforming={isPerforming}
         />;
 
@@ -115,7 +129,7 @@ export function NightActionPanel({
           setSelectedTarget={setSelectedTarget}
           selectedCenterCards={selectedCenterCards}
           setSelectedCenterCards={setSelectedCenterCards}
-          onPerformAction={onPerformAction}
+          onPerformAction={wrappedPerformAction}
           isPerforming={isPerforming}
         />;
 
@@ -124,8 +138,8 @@ export function NightActionPanel({
           otherPlayers={otherPlayers}
           selectedTarget={selectedTarget}
           setSelectedTarget={setSelectedTarget}
-          onPerformAction={onPerformAction}
-          onSkip={onSkip}
+          onPerformAction={wrappedPerformAction}
+          onSkip={wrappedSkip}
           isPerforming={isPerforming}
         />;
 
@@ -134,8 +148,8 @@ export function NightActionPanel({
           otherPlayers={otherPlayers}
           selectedTargets={selectedTargets}
           setSelectedTargets={setSelectedTargets}
-          onPerformAction={onPerformAction}
-          onSkip={onSkip}
+          onPerformAction={wrappedPerformAction}
+          onSkip={wrappedSkip}
           isPerforming={isPerforming}
         />;
 
@@ -146,14 +160,14 @@ export function NightActionPanel({
       case 'minion':
         return <MinionAction
           otherPlayers={otherPlayers}
-          onPerformAction={onPerformAction}
+          onPerformAction={wrappedPerformAction}
           isPerforming={isPerforming}
         />;
 
       case 'mason':
         return <MasonAction
           otherPlayers={otherPlayers}
-          onPerformAction={onPerformAction}
+          onPerformAction={wrappedPerformAction}
           isPerforming={isPerforming}
         />;
 
@@ -161,40 +175,37 @@ export function NightActionPanel({
         return <DrunkAction
           selectedCenterCards={selectedCenterCards}
           onSelectCenterCard={(idx) => setSelectedCenterCards([idx])}
-          onPerformAction={onPerformAction}
+          onPerformAction={wrappedPerformAction}
           isPerforming={isPerforming}
         />;
 
       case 'insomniac':
         return <InsomniacAction
-          onPerformAction={onPerformAction}
+          onPerformAction={wrappedPerformAction}
           isPerforming={isPerforming}
         />;
 
       case 'witch':
         return <WitchAction
           otherPlayers={otherPlayers}
+          currentPlayerId={currentPlayerId}
           selectedCenterCards={selectedCenterCards}
           setSelectedCenterCards={setSelectedCenterCards}
           selectedTarget={selectedTarget}
           setSelectedTarget={setSelectedTarget}
-          onPerformAction={onPerformAction}
-          onSkip={onSkip}
+          onPerformAction={wrappedPerformAction}
+          onSkip={wrappedSkip}
           isPerforming={isPerforming}
         />;
 
       case 'villager':
       default:
-        return <VillagerAction onSkip={onSkip} isPerforming={isPerforming} />;
+        return <VillagerAction onSkip={wrappedSkip} isPerforming={isPerforming} />;
     }
   };
 
   return (
     <div className={styles.panel}>
-      <div className={styles.header}>
-        <span className={styles.emoji}>{emoji}</span>
-        <h3 className={styles.title}>{config.name}</h3>
-      </div>
       <p className={styles.actionDescription}>{config.actionDescription || 'No special action'}</p>
       {renderActionUI()}
     </div>
@@ -896,6 +907,7 @@ function InsomniacAction({
 // Witch action component
 function WitchAction({
   otherPlayers,
+  currentPlayerId,
   selectedCenterCards,
   setSelectedCenterCards,
   selectedTarget,
@@ -905,6 +917,7 @@ function WitchAction({
   isPerforming,
 }: {
   otherPlayers: Array<{ id: string; displayName: string }>;
+  currentPlayerId: string;
   selectedCenterCards: number[];
   setSelectedCenterCards: (cards: number[]) => void;
   selectedTarget: string | null;
@@ -949,10 +962,11 @@ function WitchAction({
   };
 
   const handleSkipSwap = async () => {
-    if (isBusy) return;
+    if (isBusy || !peekedCard) return;
     setIsSubmitting(true);
     try {
-      await onSkip(); // Confirms action without swapping
+      // Send witch_skip with the peeked card index so the result includes what was peeked
+      await onPerformAction('witch_skip', peekedCard.index.toString());
     } finally {
       setIsSubmitting(false);
     }
@@ -998,6 +1012,16 @@ function WitchAction({
         You may swap this card with any player (including yourself), or skip:
       </p>
       <div className={styles.playerSelect}>
+        {/* Self option */}
+        <button
+          key="self"
+          className={`${styles.playerButton} ${selectedTarget === currentPlayerId ? styles.selected : ''}`}
+          onClick={() => setSelectedTarget(currentPlayerId)}
+          disabled={isBusy}
+        >
+          Myself
+        </button>
+        {/* Other players */}
         {otherPlayers.map((p) => (
           <button
             key={p.id}
@@ -1090,7 +1114,8 @@ function NightActionResult({
           <span>Other werewolf(s): {result.otherWerewolves.map(getPlayerName).join(', ')}</span>
         </div>
       )}
-      {result.otherWerewolves && result.otherWerewolves.length === 0 && role === 'werewolf' && (
+      {/* Check isLoneWolf flag as primary, fallback to checking empty array */}
+      {(result.isLoneWolf || (result.otherWerewolves && result.otherWerewolves.length === 0)) && role === 'werewolf' && (
         <div className={styles.resultItem}>
           <span className={styles.resultIcon}>🐺</span>
           <span>You are the only werewolf</span>
@@ -1119,7 +1144,12 @@ function NightActionResult({
       {result.newRole && (
         <div className={styles.resultItem}>
           <span className={styles.resultIcon}>🦹</span>
-          <span>Your new role: <strong>{result.newRole}</strong></span>
+          <span>
+            {result.robbedPlayerId 
+              ? `You robbed ${otherPlayers.find(p => p.id === result.robbedPlayerId)?.displayName || 'Unknown'} and became: `
+              : 'Your new role: '}
+            <strong>{result.newRole}</strong>
+          </span>
         </div>
       )}
       {result.swappedPlayers && (

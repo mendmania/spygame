@@ -296,6 +296,14 @@
   margin-top: 0.5rem;
 }
 
+.progressWaiting {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.5);
+  text-align: center;
+  margin-top: 0.5rem;
+  font-style: italic;
+}
+
 /* Phase indicator */
 .phaseIndicator {
   display: flex;
@@ -389,6 +397,46 @@
   line-height: 1.6;
 }
 
+/* Night result reminder during day phase */
+.nightResultReminder {
+  background: rgba(124, 58, 237, 0.15);
+  border: 1px solid rgba(124, 58, 237, 0.3);
+  border-radius: 0.75rem;
+  padding: 1rem 1.25rem;
+  width: 100%;
+}
+
+.reminderTitle {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #a78bfa;
+  margin: 0 0 0.75rem;
+}
+
+.reminderList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.reminderItem {
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.8);
+  padding: 0.25rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.reminderItem:last-child {
+  border-bottom: none;
+}
+
+.reminderText {
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.5);
+  font-style: italic;
+  margin: 0;
+}
+
 /* Voting phase styles */
 .votingContainer {
   display: flex;
@@ -412,6 +460,26 @@
   color: rgba(255, 255, 255, 0.6);
   margin: 0;
   text-align: center;
+}
+
+.votingConfirmed {
+  font-size: 0.875rem;
+  color: #a5d6a7;
+  margin: 0;
+  text-align: center;
+}
+
+.votingHint {
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.5);
+  margin: 0;
+  text-align: center;
+  font-style: italic;
+}
+
+.waitingText {
+  color: rgba(255, 255, 255, 0.5);
+  font-style: italic;
 }
 
 /* Host controls */
@@ -574,11 +642,167 @@
 
 /* Responsive */
 @media (max-width: 768px) {
+  .header {
+    padding: 0.75rem 1rem;
+  }
+  
+  .roomId {
+    font-size: 1.2rem;
+    letter-spacing: 0.2rem;
+  }
+  
+  .main {
+    padding: 1rem;
+  }
+  
   .gameLayout {
     grid-template-columns: 1fr;
+    gap: 1rem;
   }
   
   .leftPanel {
     position: static;
+    order: 2;
+  }
+  
+  .centerPanel {
+    order: 1;
+    gap: 1rem;
+    padding-top: 0;
+  }
+  
+  /* Mobile-first: Role card and phase at top */
+  .mobileTopSection {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+    width: 100%;
+  }
+  
+  .phaseIndicator {
+    padding: 0.5rem 1rem;
+  }
+  
+  .phaseEmoji {
+    font-size: 1.25rem;
+  }
+  
+  .phaseName {
+    font-size: 0.875rem;
+  }
+  
+  /* Compact role reveal on mobile */
+  .roleReveal {
+    width: 100%;
+  }
+  
+  .roleLabel {
+    font-size: 0.7rem;
+  }
+  
+  /* Night phase mobile */
+  .nightContainer {
+    gap: 1rem;
+  }
+  
+  .nightTitle {
+    font-size: 1.25rem;
+  }
+  
+  .nightSubtitle {
+    font-size: 0.8rem;
+  }
+  
+  /* Day phase mobile */
+  .dayContainer {
+    gap: 1rem;
+  }
+  
+  .dayTitle {
+    font-size: 1.25rem;
+  }
+  
+  .daySubtitle {
+    font-size: 0.8rem;
+  }
+  
+  .discussionBox {
+    padding: 1rem;
+  }
+  
+  .discussionTitle {
+    font-size: 0.875rem;
+  }
+  
+  .discussionText {
+    font-size: 0.8rem;
+  }
+  
+  .nightResultReminder {
+    padding: 0.75rem 1rem;
+  }
+  
+  .reminderTitle {
+    font-size: 0.8rem;
+    margin-bottom: 0.5rem;
+  }
+  
+  .reminderItem {
+    font-size: 0.8rem;
+  }
+  
+  /* Voting phase mobile */
+  .votingContainer {
+    gap: 1rem;
+  }
+  
+  .votingTitle {
+    font-size: 1.25rem;
+  }
+  
+  .votingSubtitle {
+    font-size: 0.8rem;
+  }
+  
+  /* Host controls mobile */
+  .hostControls {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .hostButton {
+    flex: 1;
+    max-width: 150px;
+    text-align: center;
+  }
+  
+  /* Night progress mobile */
+  .nightProgress {
+    padding: 0.75rem;
+    margin-top: 0.5rem;
+  }
+  
+  .progressLabel {
+    font-size: 0.8rem;
+  }
+  
+  /* Lobby mobile */
+  .lobbyCard {
+    padding: 1.25rem;
+    gap: 1rem;
+  }
+  
+  .lobbyTitle {
+    font-size: 1.25rem;
+  }
+  
+  .lobbyRoomCode {
+    padding: 0.75rem 1.5rem;
+  }
+  
+  .codeValue {
+    font-size: 2rem;
+    letter-spacing: 0.3rem;
   }
 }

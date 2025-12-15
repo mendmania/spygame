@@ -104,6 +104,11 @@ interface UseWerewolfRoomResult {
   nightTotalPlayers: number;
   isNightComplete: boolean;
   
+  // Voting phase progress
+  votedCount: number;
+  voteTotalPlayers: number;
+  isVotingComplete: boolean;
+  
   // Timer
   timeRemaining: number | null;
 }
@@ -458,6 +463,22 @@ export function useWerewolfRoom({
     };
   }, [roomState?.players, roomData?.meta?.status]);
 
+  // Voting phase progress calculation
+  const voteProgress = useMemo(() => {
+    if (!roomState?.players || roomData?.meta?.status !== 'voting') {
+      return { votedCount: 0, totalPlayers: 0, isComplete: false };
+    }
+    const players = roomState.players;
+    const totalPlayers = players.length;
+    // Use typeof check because Firebase RTDB deletes null values, making them undefined
+    const votedCount = players.filter((p) => typeof p.vote === 'string').length;
+    return {
+      votedCount,
+      totalPlayers,
+      isComplete: votedCount === totalPlayers,
+    };
+  }, [roomState?.players, roomData?.meta?.status]);
+
   return {
     roomState,
     loading: loading || identityLoading,
@@ -492,6 +513,9 @@ export function useWerewolfRoom({
     nightActedCount: nightProgress.actedCount,
     nightTotalPlayers: nightProgress.totalPlayers,
     isNightComplete: nightProgress.isComplete,
+    votedCount: voteProgress.votedCount,
+    voteTotalPlayers: voteProgress.totalPlayers,
+    isVotingComplete: voteProgress.isComplete,
     timeRemaining,
   };
 }
