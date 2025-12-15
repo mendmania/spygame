@@ -53,6 +53,11 @@ export default function DashboardPage() {
     }
   }, [isLoading, user, isAdmin, router, loadData]);
 
+  // Reset page when filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filter]);
+
   // Handle view room details
   const handleViewRoom = async (game: GameType, roomId: string) => {
     setLoadingRoom(true);
@@ -157,11 +162,6 @@ export default function DashboardPage() {
     (currentPage - 1) * ROOMS_PER_PAGE,
     currentPage * ROOMS_PER_PAGE
   );
-
-  // Reset page when filter changes
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [filter]);
 
   const statusColors: Record<string, string> = {
     waiting: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
