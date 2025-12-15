@@ -5,6 +5,10 @@
  * 
  * Shows night action UI based on player's role.
  * Handles different action types for each role.
+ * 
+ * TURN ENFORCEMENT:
+ * - Shows disabled state when it's not your role's turn
+ * - Displays which role is currently acting
  */
 
 import { useState } from 'react';
@@ -23,6 +27,8 @@ interface NightActionPanelProps {
   nightResult: WerewolfNightActionResult | null;
   otherPlayers: Array<{ id: string; displayName: string }>;
   isPerforming: boolean;
+  isMyTurn: boolean;                    // NEW: Whether it's this player's turn
+  activeNightRole: WerewolfRole | null; // NEW: Currently acting role
   onPerformAction: (action: NightActionType, target?: string | string[]) => Promise<WerewolfActionResult>;
   onSkip: () => Promise<WerewolfActionResult>;
 }
@@ -33,6 +39,8 @@ export function NightActionPanel({
   nightResult,
   otherPlayers,
   isPerforming,
+  isMyTurn,
+  activeNightRole,
   onPerformAction,
   onSkip,
 }: NightActionPanelProps) {
@@ -54,6 +62,32 @@ export function NightActionPanel({
         </div>
         <NightActionResult role={role} result={nightResult} otherPlayers={otherPlayers} />
         <p className={styles.waiting}>Waiting for other players...</p>
+      </div>
+    );
+  }
+
+  // If it's not this player's turn, show waiting state
+  if (!isMyTurn) {
+    const activeRoleConfig = activeNightRole ? ROLE_CONFIGS[activeNightRole] : null;
+    const activeRoleEmoji = activeNightRole ? getRoleEmoji(activeNightRole) : '⏳';
+    
+    return (
+      <div className={styles.panel}>
+        <div className={styles.header}>
+          <span className={styles.emoji}>{emoji}</span>
+          <h3 className={styles.title}>{config.name}</h3>
+        </div>
+        <div className={styles.waitingForTurn}>
+          <p className={styles.notYourTurn}>🌙 Not your turn</p>
+          {activeNightRole && activeRoleConfig && (
+            <p className={styles.currentlyActing}>
+              Currently acting: {activeRoleEmoji} {activeRoleConfig.name}
+            </p>
+          )}
+          <p className={styles.waitingMessage}>
+            Keep your eyes closed. Your turn will come...
+          </p>
+        </div>
       </div>
     );
   }
@@ -134,6 +168,18 @@ export function NightActionPanel({
       case 'insomniac':
         return <InsomniacAction
           onPerformAction={onPerformAction}
+          isPerforming={isPerforming}
+        />;
+
+      case 'witch':
+        return <WitchAction
+          otherPlayers={otherPlayers}
+          selectedCenterCards={selectedCenterCards}
+          setSelectedCenterCards={setSelectedCenterCards}
+          selectedTarget={selectedTarget}
+          setSelectedTarget={setSelectedTarget}
+          onPerformAction={onPerformAction}
+          onSkip={onSkip}
           isPerforming={isPerforming}
         />;
 
@@ -847,6 +893,142 @@ function InsomniacAction({
   );
 }
 
+// Witch action component
+function WitchAction({
+  otherPlayers,
+  selectedCenterCards,
+  setSelectedCenterCards,
+  selectedTarget,
+  setSelectedTarget,
+  onPerformAction,
+  onSkip,
+  isPerforming,
+}: {
+  otherPlayers: Array<{ id: string; displayName: string }>;
+  selectedCenterCards: number[];
+  setSelectedCenterCards: (cards: number[]) => void;
+  selectedTarget: string | null;
+  setSelectedTarget: (id: string | null) => void;
+  onPerformAction: (action: NightActionType, target?: string | string[]) => Promise<WerewolfActionResult>;
+  onSkip: () => Promise<WerewolfActionResult>;
+  isPerforming: boolean;
+}) {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  // Phase: 'select' -> 'peeked' -> done
+  const [phase, setPhase] = useState<'select' | 'peeked'>('select');
+  // Store the peeked card info
+  const [peekedCard, setPeekedCard] = useState<{ index: number; role: WerewolfRole } | null>(null);
+  
+  const isBusy = isPerforming || isSubmitting;
+
+  const handlePeek = async () => {
+    if (isBusy || selectedCenterCards.length === 0) return;
+    setIsSubmitting(true);
+    try {
+      const result = await onPerformAction('witch_peek', selectedCenterCards[0]?.toString());
+      if (result.success && result.data) {
+        const data = result.data as WerewolfNightActionResult;
+        if (data.witchPeekedCard) {
+          setPeekedCard(data.witchPeekedCard);
+          setPhase('peeked');
+        }
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleSwap = async () => {
+    if (isBusy || !peekedCard || !selectedTarget) return;
+    setIsSubmitting(true);
+    try {
+      await onPerformAction('witch_swap', [peekedCard.index.toString(), selectedTarget]);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleSkipSwap = async () => {
+    if (isBusy) return;
+    setIsSubmitting(true);
+    try {
+      await onSkip(); // Confirms action without swapping
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Phase 1: Select a center card to peek
+  if (phase === 'select') {
+    return (
+      <div className={styles.actionContent}>
+        <p className={styles.info}>
+          Select one center card to peek at:
+        </p>
+        <div className={styles.centerCards}>
+          {[0, 1, 2].map((idx) => (
+            <button
+              key={idx}
+              className={`${styles.centerCard} ${selectedCenterCards.includes(idx) ? styles.selected : ''}`}
+              onClick={() => setSelectedCenterCards([idx])}
+              disabled={isBusy}
+            >
+              Card {idx + 1}
+            </button>
+          ))}
+        </div>
+        <button
+          className={styles.actionButton}
+          onClick={handlePeek}
+          disabled={isBusy || selectedCenterCards.length === 0}
+        >
+          {isBusy ? 'Peeking...' : 'Peek at Card'}
+        </button>
+      </div>
+    );
+  }
+
+  // Phase 2: Show the peeked card, optionally swap with a player
+  return (
+    <div className={styles.actionContent}>
+      <div className={styles.revealedInfo}>
+        🧙 Center Card {(peekedCard?.index ?? 0) + 1} is: <strong>{peekedCard?.role}</strong>
+      </div>
+      <p className={styles.info}>
+        You may swap this card with any player (including yourself), or skip:
+      </p>
+      <div className={styles.playerSelect}>
+        {otherPlayers.map((p) => (
+          <button
+            key={p.id}
+            className={`${styles.playerButton} ${selectedTarget === p.id ? styles.selected : ''}`}
+            onClick={() => setSelectedTarget(p.id)}
+            disabled={isBusy}
+          >
+            {p.displayName}
+          </button>
+        ))}
+      </div>
+      <div className={styles.buttonGroup}>
+        <button
+          className={styles.actionButton}
+          onClick={handleSwap}
+          disabled={isBusy || !selectedTarget}
+        >
+          {isBusy ? 'Swapping...' : 'Swap'}
+        </button>
+        <button
+          className={styles.skipButton}
+          onClick={handleSkipSwap}
+          disabled={isBusy}
+        >
+          Skip (No Swap)
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // Villager action component
 function VillagerAction({
   onSkip,
@@ -977,6 +1159,15 @@ function NightActionResult({
         <div className={styles.resultItem}>
           <span className={styles.resultIcon}>😴</span>
           <span>Your final role: <strong>{result.finalRole}</strong></span>
+        </div>
+      )}
+      {result.witchPeekedCard && (
+        <div className={styles.resultItem}>
+          <span className={styles.resultIcon}>🧙</span>
+          <span>
+            You peeked at Center Card {result.witchPeekedCard.index + 1}: <strong>{result.witchPeekedCard.role}</strong>
+            {result.witchSwappedWith ? ` and swapped it with ${getPlayerName(result.witchSwappedWith)}` : ' (no swap)'}
+          </span>
         </div>
       )}
     </div>

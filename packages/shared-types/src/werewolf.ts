@@ -75,7 +75,9 @@ export type WerewolfRole =
   | 'minion'
   | 'mason'
   | 'drunk'
-  | 'insomniac';
+  | 'insomniac'
+  // Advanced Pack 2
+  | 'witch';
 
 /**
  * Night action order (roles act in this specific order)
@@ -89,8 +91,9 @@ export type WerewolfRole =
  * 5. Seer
  * 6. Robber
  * 7. Troublemaker
- * 8. Drunk
- * 9. Insomniac
+ * 8. Witch
+ * 9. Drunk
+ * 10. Insomniac
  */
 export const NIGHT_ACTION_ORDER: WerewolfRole[] = [
   // 'doppelganger', // Future
@@ -100,12 +103,21 @@ export const NIGHT_ACTION_ORDER: WerewolfRole[] = [
   'seer',
   'robber',
   'troublemaker',
+  'witch',
   'drunk',
   'insomniac',
 ];
 
 /**
  * Role configurations with metadata
+ * 
+ * EXTENSIBILITY PROPERTIES:
+ * - nightOrderIndex: Position in night action sequence (lower = earlier)
+ * - hasNightAction: Whether role wakes up at night
+ * - discoveryOnly: Night action only reveals info, doesn't modify game state
+ * - affectsFinalRoles: Whether night action can change roles (swaps)
+ * - canTargetSelf: Whether role can target themselves
+ * - canTargetCenter: Whether role can interact with center cards
  */
 export interface WerewolfRoleConfig {
   id: WerewolfRole;
@@ -114,6 +126,12 @@ export interface WerewolfRoleConfig {
   description: string;
   nightAction: boolean;
   actionDescription?: string;
+  // Extensibility properties for future roles
+  nightOrderIndex?: number;      // Position in night order (10=werewolf, 20=minion, etc)
+  discoveryOnly?: boolean;       // True if action only reveals info (werewolf, minion, mason)
+  affectsFinalRoles?: boolean;   // True if action can change player roles
+  canTargetSelf?: boolean;       // True if role can target self (e.g., witch swap)
+  canTargetCenter?: boolean;     // True if role can interact with center cards
 }
 
 export const WEREWOLF_ROLES: Record<WerewolfRole, WerewolfRoleConfig> = {
@@ -124,6 +142,10 @@ export const WEREWOLF_ROLES: Record<WerewolfRole, WerewolfRoleConfig> = {
     description: 'You are a Werewolf! Try to avoid detection while the village votes.',
     nightAction: true,
     actionDescription: 'See other Werewolves. If alone, you may look at one center card.',
+    nightOrderIndex: 10,
+    discoveryOnly: false,  // Can peek at center if alone
+    affectsFinalRoles: false,
+    canTargetCenter: true,
   },
   minion: {
     id: 'minion',
@@ -132,6 +154,9 @@ export const WEREWOLF_ROLES: Record<WerewolfRole, WerewolfRoleConfig> = {
     description: 'You are the Minion! Help the werewolves win without being one yourself.',
     nightAction: true,
     actionDescription: 'See who the Werewolves are. They do not know you.',
+    nightOrderIndex: 20,
+    discoveryOnly: true,
+    affectsFinalRoles: false,
   },
   mason: {
     id: 'mason',
@@ -140,6 +165,9 @@ export const WEREWOLF_ROLES: Record<WerewolfRole, WerewolfRoleConfig> = {
     description: 'You are a Mason! You know the other Mason (if any) is on your side.',
     nightAction: true,
     actionDescription: 'See the other Mason. If alone, you know there is no other Mason.',
+    nightOrderIndex: 30,
+    discoveryOnly: true,
+    affectsFinalRoles: false,
   },
   seer: {
     id: 'seer',
@@ -148,6 +176,10 @@ export const WEREWOLF_ROLES: Record<WerewolfRole, WerewolfRoleConfig> = {
     description: 'You are the Seer! Use your vision to help the village.',
     nightAction: true,
     actionDescription: 'Look at another player\'s card OR two center cards.',
+    nightOrderIndex: 40,
+    discoveryOnly: true,
+    affectsFinalRoles: false,
+    canTargetCenter: true,
   },
   robber: {
     id: 'robber',
@@ -156,6 +188,10 @@ export const WEREWOLF_ROLES: Record<WerewolfRole, WerewolfRoleConfig> = {
     description: 'You are the Robber! You may steal another player\'s role.',
     nightAction: true,
     actionDescription: 'Swap your card with another player\'s and look at your new card.',
+    nightOrderIndex: 50,
+    discoveryOnly: false,
+    affectsFinalRoles: true,
+    canTargetSelf: false,
   },
   troublemaker: {
     id: 'troublemaker',
@@ -164,6 +200,23 @@ export const WEREWOLF_ROLES: Record<WerewolfRole, WerewolfRoleConfig> = {
     description: 'You are the Troublemaker! Cause chaos among the players.',
     nightAction: true,
     actionDescription: 'Swap two other players\' cards (you don\'t get to look).',
+    nightOrderIndex: 60,
+    discoveryOnly: false,
+    affectsFinalRoles: true,
+    canTargetSelf: false,
+  },
+  witch: {
+    id: 'witch',
+    name: 'Witch',
+    team: 'village',
+    description: 'You are the Witch! You can peek at and redistribute a center card.',
+    nightAction: true,
+    actionDescription: 'Look at one center card. Then you may swap it with any player\'s card.',
+    nightOrderIndex: 70,
+    discoveryOnly: false,
+    affectsFinalRoles: true,
+    canTargetSelf: true,
+    canTargetCenter: true,
   },
   drunk: {
     id: 'drunk',
@@ -172,6 +225,10 @@ export const WEREWOLF_ROLES: Record<WerewolfRole, WerewolfRoleConfig> = {
     description: 'You are the Drunk! You accidentally swapped your card with the center.',
     nightAction: true,
     actionDescription: 'Swap your card with a center card. You do NOT see your new role.',
+    nightOrderIndex: 80,
+    discoveryOnly: false,
+    affectsFinalRoles: true,
+    canTargetCenter: true,
   },
   insomniac: {
     id: 'insomniac',
@@ -180,6 +237,10 @@ export const WEREWOLF_ROLES: Record<WerewolfRole, WerewolfRoleConfig> = {
     description: 'You are the Insomniac! You get to see your final card before day.',
     nightAction: true,
     actionDescription: 'Look at your own card at the end of night to see if it changed.',
+    nightOrderIndex: 90,
+    discoveryOnly: true,
+    affectsFinalRoles: false,
+    canTargetSelf: true,
   },
   villager: {
     id: 'villager',
@@ -187,6 +248,9 @@ export const WEREWOLF_ROLES: Record<WerewolfRole, WerewolfRoleConfig> = {
     team: 'village',
     description: 'You are a Villager! Find and eliminate the Werewolves.',
     nightAction: false,
+    nightOrderIndex: 999,  // No night action
+    discoveryOnly: false,
+    affectsFinalRoles: false,
   },
 };
 
@@ -231,6 +295,7 @@ export interface WerewolfRoomMeta {
   createdBy: string;
   settings: WerewolfGameSettings;
   selectedRoles?: WerewolfRole[];  // Host-selected roles for the game (locked when game starts)
+  activeNightRole?: WerewolfRole | null;  // Currently acting role during night phase (null when night is complete)
 }
 
 /**
@@ -266,6 +331,8 @@ export type NightActionType =
   | 'troublemaker_swap'    // Troublemaker swaps 2 players
   | 'minion_see'           // Minion sees werewolves
   | 'mason_see'            // Mason sees other mason
+  | 'witch_peek'           // Witch looks at one center card
+  | 'witch_swap'           // Witch swaps center card with a player (or self)
   | 'drunk_swap'           // Drunk swaps with center card
   | 'insomniac_check'      // Insomniac checks own card
   | 'none';                // No action taken (villager, etc)
@@ -302,6 +369,10 @@ export interface WerewolfNightActionResult {
   werewolvesSeen?: string[];
   // For mason: other mason player ID (null if lone mason)
   otherMason?: string | null;
+  // For witch: the center card they peeked at
+  witchPeekedCard?: { index: number; role: WerewolfRole };
+  // For witch: the swap they performed (if any)
+  witchSwappedWith?: string; // playerId they swapped the center card with
   // For drunk: which center card index was swapped (0, 1, or 2)
   centerCardSwapped?: number;
   // For insomniac: their final role after all swaps
@@ -319,8 +390,9 @@ export interface WerewolfGameState {
   dayEndsAt: number | null;
   votingEndsAt: number | null;
   currentPhase: WerewolfPhase;
-  nightActionOrder: WerewolfRole[];
-  currentNightActionIndex: number;
+  nightActionOrder: WerewolfRole[];        // Roles that need to act this night (filtered by active players)
+  currentNightActionIndex: number;         // Index into nightActionOrder for current role
+  playersActedThisRole?: Record<string, boolean>;  // Track who has acted for the current role
 }
 
 /**
@@ -398,6 +470,7 @@ export interface WerewolfRoomState {
   myOriginalRole: WerewolfRole | null;
   myCurrentRole: WerewolfRole | null;
   nightActionResult: WerewolfNightActionResult | null;
+  activeNightRole: WerewolfRole | null;  // Currently acting role during night
 }
 
 /**

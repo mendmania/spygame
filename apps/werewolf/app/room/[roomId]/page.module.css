@@ -234,6 +234,40 @@
   margin-top: 1rem;
 }
 
+/* Active role indicator during night */
+.activeRoleIndicator {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.activeRoleLabel {
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.05rem;
+}
+
+.activeRoleName {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #fbbf24;
+  animation: roleGlow 2s ease-in-out infinite;
+}
+
+@keyframes roleGlow {
+  0%, 100% {
+    text-shadow: 0 0 8px rgba(251, 191, 36, 0.3);
+  }
+  50% {
+    text-shadow: 0 0 16px rgba(251, 191, 36, 0.6);
+  }
+}
+
 .progressLabel {
   font-size: 0.875rem;
   color: rgba(255, 255, 255, 0.7);

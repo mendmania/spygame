@@ -7,10 +7,16 @@
  * Non-host players see a read-only view of selected roles.
  * 
  * Features:
- * - Add/remove role cards
- * - Shows total cards and required player count
- * - Validates role selection
+ * - Clear separation: Player Roles vs Center Cards (3)
+ * - Add/remove role cards with counts
+ * - Shows validation reasons for Start Game
  * - Saves to Firebase on change
+ * 
+ * KEY CONCEPT:
+ * In One Night Werewolf, you select N + 3 cards total.
+ * N cards go to players, 3 go to the center (middle).
+ * The center cards are NOT chosen separately - the game
+ * shuffles all cards and deals them out.
  */
 
 import { useState, useCallback, useEffect, useMemo } from 'react';
@@ -34,6 +40,7 @@ const ALL_ROLES: WerewolfRole[] = [
   'robber',
   'troublemaker',
   'mason',
+  'witch',
   'drunk',
   'insomniac',
   'villager',
@@ -41,21 +48,24 @@ const ALL_ROLES: WerewolfRole[] = [
 
 // Roles grouped by team
 const WEREWOLF_TEAM_ROLES: WerewolfRole[] = ['werewolf', 'minion'];
-const VILLAGE_TEAM_ROLES: WerewolfRole[] = ['seer', 'robber', 'troublemaker', 'mason', 'drunk', 'insomniac', 'villager'];
+const VILLAGE_TEAM_ROLES: WerewolfRole[] = ['seer', 'robber', 'troublemaker', 'mason', 'witch', 'drunk', 'insomniac', 'villager'];
 
 // Default role sets for quick selection
-const ROLE_PRESETS: Record<string, { name: string; roles: WerewolfRole[] }> = {
+const ROLE_PRESETS: Record<string, { name: string; description: string; roles: WerewolfRole[] }> = {
   basic: {
-    name: 'Basic (3-4 players)',
+    name: 'Basic',
+    description: '3-4 players',
     roles: ['werewolf', 'seer', 'robber', 'troublemaker', 'villager', 'villager'],
   },
   standard: {
-    name: 'Standard (5-6 players)',
+    name: 'Standard',
+    description: '5-6 players',
     roles: ['werewolf', 'werewolf', 'seer', 'robber', 'troublemaker', 'drunk', 'insomniac', 'villager', 'villager'],
   },
   advanced: {
-    name: 'Advanced (6-7 players)',
-    roles: ['werewolf', 'werewolf', 'minion', 'seer', 'robber', 'troublemaker', 'mason', 'mason', 'drunk', 'insomniac'],
+    name: 'Advanced',
+    description: '6-7 players',
+    roles: ['werewolf', 'werewolf', 'minion', 'seer', 'robber', 'troublemaker', 'witch', 'mason', 'mason', 'insomniac'],
   },
 };
 
@@ -86,41 +96,55 @@ export function RoleSelector({
     return counts;
   }, [localRoles]);
 
-  // Validation
+  // Calculate key metrics
   const totalCards = localRoles.length;
-  const requiredPlayers = totalCards - CENTER_CARD_COUNT;
+  const playerRolesCount = Math.max(0, totalCards - CENTER_CARD_COUNT);
+  const centerCardsCount = Math.min(totalCards, CENTER_CARD_COUNT);
   const werewolfCount = roleCounts['werewolf'] || 0;
   const masonCount = roleCounts['mason'] || 0;
 
-  const validation = useMemo(() => {
-    const errors: string[] = [];
-    const warnings: string[] = [];
+  // Determine if setup matches current player count
+  const isMatchingPlayerCount = playerCount > 0 && playerRolesCount === playerCount;
 
+  // Validation - returns reasons why Start Game would fail
+  const validation = useMemo(() => {
+    const reasons: string[] = [];
+
+    // Check minimum cards
     if (totalCards < MIN_PLAYERS + CENTER_CARD_COUNT) {
-      errors.push(`Need at least ${MIN_PLAYERS + CENTER_CARD_COUNT} cards (${MIN_PLAYERS} players + 3 center)`);
+      reasons.push(`Need at least ${MIN_PLAYERS + CENTER_CARD_COUNT} cards (${MIN_PLAYERS} players + 3 center)`);
     }
+    
+    // Check maximum cards  
     if (totalCards > MAX_PLAYERS + CENTER_CARD_COUNT) {
-      errors.push(`Maximum ${MAX_PLAYERS + CENTER_CARD_COUNT} cards (${MAX_PLAYERS} players + 3 center)`);
+      reasons.push(`Maximum ${MAX_PLAYERS + CENTER_CARD_COUNT} cards (${MAX_PLAYERS} players + 3 center)`);
     }
+    
+    // Must have werewolves
     if (werewolfCount === 0) {
-      errors.push('Must have at least 1 Werewolf');
+      reasons.push('At least 1 Werewolf required');
     }
+    
+    // Mason pairs
     if (masonCount === 1) {
-      warnings.push('Only 1 Mason selected - Masons work best in pairs');
+      reasons.push('Masons must be 0 or 2+ (they work in pairs)');
     }
-    if (playerCount > 0 && totalCards !== playerCount + CENTER_CARD_COUNT) {
-      const needed = playerCount + CENTER_CARD_COUNT;
-      if (totalCards < needed) {
-        warnings.push(`Need ${needed - totalCards} more card(s) for ${playerCount} players`);
-      } else {
-        warnings.push(`${totalCards - needed} extra card(s) for ${playerCount} players`);
+    
+    // Card count vs player count
+    if (playerCount > 0) {
+      const expected = playerCount + CENTER_CARD_COUNT;
+      if (totalCards !== expected) {
+        if (totalCards < expected) {
+          reasons.push(`Need ${expected - totalCards} more card(s) for ${playerCount} players`);
+        } else {
+          reasons.push(`Remove ${totalCards - expected} card(s) for ${playerCount} players`);
+        }
       }
     }
 
     return {
-      isValid: errors.length === 0 && (playerCount === 0 || totalCards === playerCount + CENTER_CARD_COUNT),
-      errors,
-      warnings,
+      canStart: reasons.length === 0,
+      reasons,
     };
   }, [totalCards, werewolfCount, masonCount, playerCount]);
 
@@ -131,10 +155,8 @@ export function RoleSelector({
     const newRoles = [...localRoles];
     
     if (delta > 0) {
-      // Add role
       newRoles.push(role);
     } else if (delta < 0) {
-      // Remove role
       const index = newRoles.lastIndexOf(role);
       if (index !== -1) {
         newRoles.splice(index, 1);
@@ -149,7 +171,7 @@ export function RoleSelector({
       const result = await onUpdateRoles(newRoles);
       if (!result.success) {
         setError(result.error || 'Failed to update roles');
-        setLocalRoles(selectedRoles); // Revert on error
+        setLocalRoles(selectedRoles);
       }
     } catch (err) {
       setError('Failed to update roles');
@@ -228,35 +250,58 @@ export function RoleSelector({
         </div>
       )}
 
-      <p className={styles.subtitle}>
-        Select roles for the game. Total cards = players + 3 center cards.
-      </p>
-
-      {/* Stats */}
-      <div className={styles.stats}>
-        <div className={styles.stat}>
-          <span className={styles.statLabel}>Total Cards</span>
-          <span className={`${styles.statValue} ${validation.isValid ? styles.valid : styles.invalid}`}>
-            {totalCards}
-          </span>
-        </div>
-        <div className={styles.stat}>
-          <span className={styles.statLabel}>Players Needed</span>
-          <span className={`${styles.statValue} ${playerCount === requiredPlayers ? styles.valid : ''}`}>
-            {requiredPlayers}
-          </span>
-        </div>
-        <div className={styles.stat}>
-          <span className={styles.statLabel}>Current Players</span>
-          <span className={styles.statValue}>{playerCount}</span>
-        </div>
-        <div className={styles.stat}>
-          <span className={styles.statLabel}>Werewolves</span>
-          <span className={`${styles.statValue} ${werewolfCount > 0 ? styles.valid : styles.invalid}`}>
-            {werewolfCount}
-          </span>
+      {/* Card Distribution Summary */}
+      <div className={styles.distribution}>
+        <div className={styles.distributionRow}>
+          <div className={`${styles.distributionBox} ${styles.playerBox}`}>
+            <span className={styles.distributionLabel}>👥 Player Roles</span>
+            <span className={`${styles.distributionValue} ${isMatchingPlayerCount ? styles.match : ''}`}>
+              {playerRolesCount}
+            </span>
+            {playerCount > 0 && (
+              <span className={styles.distributionNote}>
+                {isMatchingPlayerCount ? '✓ matches' : `need ${playerCount}`}
+              </span>
+            )}
+          </div>
+          <div className={styles.distributionPlus}>+</div>
+          <div className={`${styles.distributionBox} ${styles.centerBox}`}>
+            <span className={styles.distributionLabel}>🎴 Center Cards</span>
+            <span className={`${styles.distributionValue} ${centerCardsCount === 3 ? styles.match : ''}`}>
+              {centerCardsCount} / 3
+            </span>
+            <span className={styles.distributionNote}>
+              {centerCardsCount === 3 ? '✓ ready' : 'need 3'}
+            </span>
+          </div>
+          <div className={styles.distributionEquals}>=</div>
+          <div className={`${styles.distributionBox} ${styles.totalBox}`}>
+            <span className={styles.distributionLabel}>Total Cards</span>
+            <span className={styles.distributionValue}>{totalCards}</span>
+          </div>
         </div>
       </div>
+
+      {/* Quick Presets */}
+      {isHost && (
+        <div className={styles.presets}>
+          <span className={styles.presetsLabel}>Quick Setup:</span>
+          <div className={styles.presetButtons}>
+            {Object.entries(ROLE_PRESETS).map(([key, preset]) => (
+              <button
+                key={key}
+                className={styles.presetButton}
+                onClick={() => handleApplyPreset(preset.roles)}
+                disabled={isUpdating}
+                title={`${preset.roles.length} cards for ${preset.description}`}
+              >
+                {preset.name}
+                <span className={styles.presetDetail}>{preset.description}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Role Categories */}
       <div className={styles.categories}>
@@ -264,6 +309,9 @@ export function RoleSelector({
         <div className={styles.category}>
           <div className={styles.categoryHeader}>
             <span className={`${styles.categoryName} ${styles.werewolf}`}>🐺 Werewolf Team</span>
+            <span className={styles.categoryCount}>
+              {roleCounts['werewolf'] + roleCounts['minion']} selected
+            </span>
           </div>
           <div className={styles.roleGrid}>
             {WEREWOLF_TEAM_ROLES.map(renderRoleCard)}
@@ -274,6 +322,9 @@ export function RoleSelector({
         <div className={styles.category}>
           <div className={styles.categoryHeader}>
             <span className={`${styles.categoryName} ${styles.village}`}>🏘️ Village Team</span>
+            <span className={styles.categoryCount}>
+              {VILLAGE_TEAM_ROLES.reduce((sum, r) => sum + (roleCounts[r] || 0), 0)} selected
+            </span>
           </div>
           <div className={styles.roleGrid}>
             {VILLAGE_TEAM_ROLES.map(renderRoleCard)}
@@ -281,60 +332,28 @@ export function RoleSelector({
         </div>
       </div>
 
-      {/* Quick Presets */}
-      {isHost && (
-        <div className={styles.quickActions}>
-          {Object.entries(ROLE_PRESETS).map(([key, preset]) => (
-            <button
-              key={key}
-              className={styles.quickButton}
-              onClick={() => handleApplyPreset(preset.roles)}
-              disabled={isUpdating}
-            >
-              {preset.name}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* Selected Roles Display */}
-      <div className={styles.selectedRoles}>
-        <div className={styles.selectedTitle}>Selected Roles ({totalCards})</div>
-        <div className={styles.selectedList}>
-          {localRoles.map((role, idx) => {
-            const config = ROLE_CONFIGS[role];
-            const isWerewolfTeam = config.team === 'werewolf';
-            return (
-              <span
-                key={`${role}-${idx}`}
-                className={`${styles.selectedRole} ${isWerewolfTeam ? styles.werewolf : styles.village}`}
-              >
-                {getRoleEmoji(role)} {config.name}
-              </span>
-            );
-          })}
-        </div>
+      {/* Validation / Start Game Blockers */}
+      <div className={styles.validationSection}>
+        {validation.canStart ? (
+          <div className={styles.canStart}>
+            ✅ Ready to start with {playerRolesCount} players
+          </div>
+        ) : (
+          <div className={styles.cannotStart}>
+            <div className={styles.cannotStartHeader}>
+              ⚠️ Cannot start game:
+            </div>
+            <ul className={styles.reasonsList}>
+              {validation.reasons.map((reason, idx) => (
+                <li key={idx}>{reason}</li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
 
-      {/* Validation Messages */}
-      {validation.errors.length > 0 && (
-        <div className={styles.error}>
-          ⚠️ {validation.errors.join(' • ')}
-        </div>
-      )}
-      {validation.warnings.length > 0 && validation.errors.length === 0 && (
-        <div className={styles.warning}>
-          💡 {validation.warnings.join(' • ')}
-        </div>
-      )}
-      {validation.isValid && validation.warnings.length === 0 && totalCards > 0 && (
-        <div className={styles.valid}>
-          ✓ Ready for {requiredPlayers} players
-        </div>
-      )}
-
       {error && (
-        <div className={styles.error}>
+        <div className={styles.errorMessage}>
           ❌ {error}
         </div>
       )}
