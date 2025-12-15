@@ -5,115 +5,31 @@
  * 
  * EXTENDING WITH NEW ROLES:
  * 1. Add the role to WerewolfRole type in @vbz/shared-types/werewolf.ts
- * 2. Add the role config to ROLE_CONFIGS below
- * 3. Add the role to NIGHT_ACTION_ORDER in the correct position
- * 4. Implement the night action logic in game-actions.ts
+ * 2. Add the role config to WEREWOLF_ROLES in @vbz/shared-types/werewolf.ts
+ *    (include nightOrderIndex, discoveryOnly, affectsFinalRoles, etc)
+ * 3. Add role handler in executeNightAction() in game-actions.ts
+ * 4. Add UI component in NightActionPanel.tsx
+ * 
+ * The night order is DERIVED from nightOrderIndex - no need to maintain
+ * a separate NIGHT_ACTION_ORDER array.
  */
 
 import type { WerewolfRole, WerewolfRoleConfig } from '@vbz/shared-types';
+import { WEREWOLF_ROLES } from '@vbz/shared-types';
+
+// Re-export from shared-types for convenience
+export const ROLE_CONFIGS: Record<WerewolfRole, WerewolfRoleConfig> = WEREWOLF_ROLES;
 
 /**
- * Role configurations with display information and mechanics
- */
-export const ROLE_CONFIGS: Record<WerewolfRole, WerewolfRoleConfig> = {
-  werewolf: {
-    id: 'werewolf',
-    name: 'Werewolf',
-    team: 'werewolf',
-    description: 'You are a Werewolf! Try to avoid detection while the village votes.',
-    nightAction: true,
-    actionDescription: 'See other Werewolves. If alone, you may look at one center card.',
-  },
-  minion: {
-    id: 'minion',
-    name: 'Minion',
-    team: 'werewolf',
-    description: 'You are the Minion! Help the werewolves win without being one yourself.',
-    nightAction: true,
-    actionDescription: 'See who the Werewolves are. They do not know you.',
-  },
-  mason: {
-    id: 'mason',
-    name: 'Mason',
-    team: 'village',
-    description: 'You are a Mason! You know the other Mason (if any) is on your side.',
-    nightAction: true,
-    actionDescription: 'See the other Mason. If alone, you know there is no other Mason.',
-  },
-  seer: {
-    id: 'seer',
-    name: 'Seer',
-    team: 'village',
-    description: 'You are the Seer! Use your vision to help the village.',
-    nightAction: true,
-    actionDescription: "Look at another player's card OR two center cards.",
-  },
-  robber: {
-    id: 'robber',
-    name: 'Robber',
-    team: 'village',
-    description: "You are the Robber! You may steal another player's role.",
-    nightAction: true,
-    actionDescription: "Swap your card with another player's and look at your new card.",
-  },
-  troublemaker: {
-    id: 'troublemaker',
-    name: 'Troublemaker',
-    team: 'village',
-    description: 'You are the Troublemaker! Cause chaos among the players.',
-    nightAction: true,
-    actionDescription: "Swap two other players' cards (you don't get to look).",
-  },
-  drunk: {
-    id: 'drunk',
-    name: 'Drunk',
-    team: 'village',
-    description: 'You are the Drunk! You accidentally swapped your card with the center.',
-    nightAction: true,
-    actionDescription: 'Swap your card with a center card. You do NOT see your new role.',
-  },
-  insomniac: {
-    id: 'insomniac',
-    name: 'Insomniac',
-    team: 'village',
-    description: 'You are the Insomniac! You get to see your final card before day.',
-    nightAction: true,
-    actionDescription: 'Look at your own card at the end of night to see if it changed.',
-  },
-  villager: {
-    id: 'villager',
-    name: 'Villager',
-    team: 'village',
-    description: 'You are a Villager! Find and eliminate the Werewolves.',
-    nightAction: false,
-  },
-};
-
-/**
- * Night action order - roles act in this specific order
- * This is CRITICAL for correct game mechanics
+ * Night action order - DERIVED from nightOrderIndex in role configs
+ * Roles with nightAction: true are sorted by nightOrderIndex
  * 
- * Official One Night Ultimate Werewolf order:
- * 1. Doppelganger (future)
- * 2. Werewolves
- * 3. Minion
- * 4. Masons
- * 5. Seer
- * 6. Robber
- * 7. Troublemaker
- * 8. Drunk
- * 9. Insomniac
+ * This replaces the manual NIGHT_ACTION_ORDER array.
  */
-export const NIGHT_ACTION_ORDER: WerewolfRole[] = [
-  'werewolf',
-  'minion',
-  'mason',
-  'seer',
-  'robber',
-  'troublemaker',
-  'drunk',
-  'insomniac',
-];
+export const NIGHT_ACTION_ORDER: WerewolfRole[] = (Object.values(WEREWOLF_ROLES) as WerewolfRoleConfig[])
+  .filter(config => config.nightAction)
+  .sort((a, b) => (a.nightOrderIndex ?? 999) - (b.nightOrderIndex ?? 999))
+  .map(config => config.id);
 
 /**
  * Default role sets for different player counts
@@ -156,11 +72,13 @@ export function getRoleEmoji(role: WerewolfRole): string {
     case 'mason':
       return '🔨';
     case 'seer':
-      return '🔮';
+      return '��';
     case 'robber':
       return '🦹';
     case 'troublemaker':
       return '🃏';
+    case 'witch':
+      return '🧙';
     case 'drunk':
       return '🍺';
     case 'insomniac':
@@ -202,6 +120,6 @@ export function getRoleBackgroundClass(role: WerewolfRole): string {
     case 'neutral':
       return 'bg-yellow-900/30 border-yellow-700';
     default:
-      return 'bg-gray-800/30 border-gray-700';
+      return 'bg-gray-900/30 border-gray-700';
   }
 }

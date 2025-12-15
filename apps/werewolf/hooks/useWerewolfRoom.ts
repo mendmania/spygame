@@ -130,11 +130,22 @@ function transformRoomData(
   const status = data.meta.status;
 
   // Determine if it's this player's turn to act during night
+  // STRICT TURN ENFORCEMENT: Player can only act if:
+  // 1. It's night phase
+  // 2. Their role matches meta.activeNightRole
+  // 3. They haven't acted yet
   let isMyTurnToAct = false;
   if (status === 'night' && privateData?.originalRole) {
-    const roleConfig = ROLE_CONFIGS[privateData.originalRole];
-    // Player can act if they have a night action and haven't acted yet
-    isMyTurnToAct = roleConfig.nightAction && !currentPlayer?.hasActed;
+    const myRole = privateData.originalRole;
+    const activeNightRole = data.meta.activeNightRole;
+    const roleConfig = ROLE_CONFIGS[myRole];
+    
+    // Only allow action if it's this role's turn AND player hasn't acted
+    isMyTurnToAct = (
+      roleConfig.nightAction && 
+      myRole === activeNightRole && 
+      !currentPlayer?.hasActed
+    );
   }
 
   return {
@@ -156,6 +167,7 @@ function transformRoomData(
     myOriginalRole: privateData?.originalRole || null,
     myCurrentRole: privateData?.currentRole || null,
     nightActionResult: privateData?.nightActionResult || null,
+    activeNightRole: data.meta.activeNightRole || null,
   };
 }
 

@@ -285,3 +285,37 @@
   font-size: 0.875rem;
   margin-top: 0.5rem;
 }
+
+/* Waiting for turn state */
+.waitingForTurn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1.5rem 1rem;
+  text-align: center;
+}
+
+.notYourTurn {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.6);
+  margin: 0;
+}
+
+.currentlyActing {
+  font-size: 0.9rem;
+  color: #fbbf24;
+  margin: 0;
+  padding: 0.5rem 1rem;
+  background: rgba(251, 191, 36, 0.1);
+  border: 1px solid rgba(251, 191, 36, 0.3);
+  border-radius: 0.5rem;
+}
+
+.waitingMessage {
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.4);
+  margin: 0;
+  font-style: italic;
+}

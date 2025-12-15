@@ -302,3 +302,184 @@
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+/* Card Distribution Summary */
+.distribution {
+  margin-bottom: 1rem;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 8px;
+}
+
+.distributionRow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.distributionBox {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  min-width: 90px;
+}
+
+.distributionBox.playerBox {
+  border-color: rgba(96, 165, 250, 0.3);
+}
+
+.distributionBox.centerBox {
+  border-color: rgba(251, 191, 36, 0.3);
+}
+
+.distributionBox.totalBox {
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.distributionLabel {
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.6);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin-bottom: 0.25rem;
+}
+
+.distributionValue {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.distributionValue.match {
+  color: #4ade80;
+}
+
+.distributionNote {
+  font-size: 0.65rem;
+  color: rgba(255, 255, 255, 0.5);
+  margin-top: 0.25rem;
+}
+
+.distributionPlus,
+.distributionEquals {
+  font-size: 1.25rem;
+  color: rgba(255, 255, 255, 0.4);
+  font-weight: 600;
+}
+
+/* Presets */
+.presets {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.presetsLabel {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.presetButtons {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.presetButton {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.presetButton:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.presetButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.presetDetail {
+  font-size: 0.65rem;
+  color: rgba(255, 255, 255, 0.5);
+  font-weight: 400;
+}
+
+/* Category count */
+.categoryCount {
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.4);
+  margin-left: auto;
+}
+
+/* Validation Section */
+.validationSection {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.canStart {
+  padding: 0.75rem;
+  background: rgba(74, 222, 128, 0.1);
+  border: 1px solid rgba(74, 222, 128, 0.3);
+  border-radius: 8px;
+  color: #4ade80;
+  font-size: 0.9rem;
+  font-weight: 500;
+  text-align: center;
+}
+
+.cannotStart {
+  padding: 0.75rem;
+  background: rgba(248, 113, 113, 0.1);
+  border: 1px solid rgba(248, 113, 113, 0.3);
+  border-radius: 8px;
+}
+
+.cannotStartHeader {
+  color: #f87171;
+  font-size: 0.85rem;
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+}
+
+.reasonsList {
+  margin: 0;
+  padding-left: 1.25rem;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.8rem;
+}
+
+.reasonsList li {
+  margin-bottom: 0.25rem;
+}
+
+.errorMessage {
+  margin-top: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  background: rgba(248, 113, 113, 0.1);
+  border: 1px solid rgba(248, 113, 113, 0.3);
+  border-radius: 6px;
+  color: #f87171;
+  font-size: 0.8rem;
+}

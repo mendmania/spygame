@@ -174,6 +174,21 @@ export async function startGame(
       return { success: false, error: 'Selected roles must include at least one Werewolf' };
     }
 
+    // Validate Mason count - can be 0 or 2+, but not exactly 1
+    const masonCount = rolesForGame.filter(r => r === 'mason').length;
+    if (masonCount === 1) {
+      await roomRef.child('meta/status').set('waiting');
+      return { success: false, error: 'Masons must be 0 or 2+, not exactly 1 (they work in pairs)' };
+    }
+
+    // Validate all roles are known types
+    const validRoles: WerewolfRole[] = ['werewolf', 'seer', 'robber', 'troublemaker', 'villager', 'minion', 'mason', 'drunk', 'insomniac', 'witch'];
+    const invalidRoles = rolesForGame.filter(r => !validRoles.includes(r));
+    if (invalidRoles.length > 0) {
+      await roomRef.child('meta/status').set('waiting');
+      return { success: false, error: `Unknown role(s): ${invalidRoles.join(', ')}` };
+    }
+
     const shuffledRoles = shuffleArray(rolesForGame);
 
     // Assign roles to players
@@ -229,9 +244,13 @@ export async function startGame(
       playerUpdates[`players/${pid}/isReady`] = false;
     }
 
+    // Determine the first active night role
+    const firstNightRole = nightActionOrder.length > 0 ? nightActionOrder[0] : null;
+
     // Atomic write
     await roomRef.update({
       'meta/status': 'night',
+      'meta/activeNightRole': firstNightRole,  // Set the first role to act
       roles: playerRoles,
       currentRoles: { ...playerRoles }, // Copy for tracking swaps
       centerCards,
@@ -265,6 +284,9 @@ export async function startGame(
  * RACE CONDITION PROTECTION:
  * Uses transaction to atomically check hasActed and set it,
  * preventing double-action from multiple tabs or rapid clicks.
+ * 
+ * TURN ENFORCEMENT:
+ * Player can only act if their role matches meta.activeNightRole.
  */
 export async function performNightAction({
   roomId,
@@ -295,6 +317,29 @@ export async function performNightAction({
       return { success: false, error: 'Player not found in room' };
     }
 
+    const originalRole = roomData.roles?.[playerId];
+    if (!originalRole) {
+      return { success: false, error: 'Role not assigned' };
+    }
+
+    // ========================================
+    // STRICT TURN ENFORCEMENT
+    // ========================================
+    const activeNightRole = roomData.meta.activeNightRole;
+    
+    // If no active night role, night phase is complete (shouldn't happen if status is 'night')
+    if (!activeNightRole) {
+      return { success: false, error: 'Night phase is complete - no roles currently acting' };
+    }
+    
+    // Validate player's role matches the currently active role
+    if (originalRole !== activeNightRole) {
+      return { 
+        success: false, 
+        error: `Not your turn. Currently waiting for: ${activeNightRole}` 
+      };
+    }
+
     // Special case: werewolf_discover is a non-committing action to check for other werewolves
     // This allows lone werewolves to see they're alone, then decide whether to peek
     const isWerewolfDiscovery = action === 'werewolf_discover';
@@ -321,15 +366,6 @@ export async function performNightAction({
       if (!transactionResult.committed) {
         return { success: false, error: 'You have already performed your night action' };
       }
-    }
-
-    const originalRole = roomData.roles?.[playerId];
-    if (!originalRole) {
-      // Revert hasActed if role not found (shouldn't happen)
-      if (!isWerewolfDiscovery) {
-        await roomRef.child(`players/${playerId}/hasActed`).set(false);
-      }
-      return { success: false, error: 'Role not assigned' };
     }
 
     // Execute the action and get result
@@ -373,18 +409,26 @@ export async function performNightAction({
       await roomRef.child(`privatePlayerData/${playerId}/nightActionResult`).set(result.data);
     }
 
-    // Check if all players have acted
+    // ========================================
+    // AUTO-ADVANCE TO NEXT ROLE
+    // ========================================
+    // Check if all players of the CURRENT ROLE have acted
     const allPlayers = Object.keys(roomData.players || {});
+    const playersWithCurrentRole = allPlayers.filter(
+      (pid) => roomData.roles?.[pid] === originalRole
+    );
+    
+    // Re-read to get latest hasActed state
     const updatedSnapshot = await roomRef.once('value');
     const updatedData: WerewolfRoomData = updatedSnapshot.val();
     
-    const allActed = allPlayers.every(
+    const allOfRoleActed = playersWithCurrentRole.every(
       (pid) => updatedData.players?.[pid]?.hasActed
     );
 
-    if (allActed) {
-      // Auto-advance to day phase
-      await advanceToDay(roomId);
+    if (allOfRoleActed) {
+      // All players of this role have acted - advance to next role
+      await advanceToNextNightRole(roomId, updatedData);
     }
 
     return { success: true, data: result.data };
@@ -640,6 +684,78 @@ async function executeNightAction({
       }
     }
 
+    case 'witch': {
+      // Witch: First peeks at one center card, then optionally swaps it with any player
+      
+      if (action === 'witch_peek' && typeof target === 'string') {
+        // Step 1: Peek at one center card (non-committing, like werewolf_discover)
+        const cardIndex = parseInt(target);
+        if (cardIndex < 0 || cardIndex > 2) {
+          return { success: false, error: 'Invalid center card index' };
+        }
+        const cardKey = `card${cardIndex + 1}` as keyof WerewolfCenterCards;
+        const seenRole = centerCards?.[cardKey];
+        
+        if (!seenRole) {
+          return { success: false, error: 'Invalid center card' };
+        }
+        
+        return {
+          success: true,
+          data: { 
+            witchPeekedCard: { index: cardIndex, role: seenRole },
+            isDiscoveryOnly: true, // Indicates action not yet committed
+          } as WerewolfNightActionResult,
+        };
+      }
+      
+      if (action === 'witch_swap' && Array.isArray(target) && target.length === 2) {
+        // Step 2: Swap the peeked center card with a player's card
+        // target[0] = center card index (as string), target[1] = player ID to swap with
+        const [centerIdxStr, targetPlayerId] = target;
+        const cardIndex = parseInt(centerIdxStr);
+        
+        if (cardIndex < 0 || cardIndex > 2) {
+          return { success: false, error: 'Invalid center card index' };
+        }
+        
+        // Validate target player exists
+        if (!currentRoles[targetPlayerId]) {
+          return { success: false, error: 'Invalid target player' };
+        }
+        
+        const cardKey = `card${cardIndex + 1}` as keyof WerewolfCenterCards;
+        const centerRole = centerCards?.[cardKey];
+        const targetRole = currentRoles[targetPlayerId];
+        
+        if (!centerRole || !targetRole) {
+          return { success: false, error: 'Invalid swap state' };
+        }
+        
+        // Perform the swap: center card <-> target player's card
+        await roomRef.child(`currentRoles/${targetPlayerId}`).set(centerRole);
+        await roomRef.child(`centerCards/${cardKey}`).set(targetRole);
+        
+        // Update private data for the target player
+        await roomRef.child(`privatePlayerData/${targetPlayerId}/currentRole`).set(centerRole);
+        
+        return {
+          success: true,
+          data: { 
+            witchPeekedCard: { index: cardIndex, role: centerRole },
+            witchSwappedWith: targetPlayerId,
+          } as WerewolfNightActionResult,
+        };
+      }
+      
+      if (action === 'none') {
+        // Witch chose to peek only, no swap (valid action)
+        return { success: true, data: {} };
+      }
+      
+      return { success: false, error: 'Invalid witch action' };
+    }
+
     case 'insomniac': {
       // Insomniac looks at their own card at the END of night (after all swaps)
       // Re-read currentRoles to get the latest state after all swaps
@@ -773,6 +889,58 @@ export async function forceAdvanceToDay(
 }
 
 /**
+ * Advance to the next night role (internal - called when all players of current role have acted)
+ * 
+ * This handles the strict turn-based night phase:
+ * 1. Find the next role in nightActionOrder that has active players
+ * 2. Reset hasActed for all players (so the new role's players can act)
+ * 3. Update meta.activeNightRole
+ * 4. If no more roles, advance to day phase
+ */
+async function advanceToNextNightRole(roomId: string, roomData: WerewolfRoomData): Promise<void> {
+  const db = getAdminDatabase();
+  const roomRef = db.ref(`${ROOMS_BASE}/${roomId}`);
+  
+  const nightActionOrder = roomData.state?.nightActionOrder || [];
+  const currentIndex = roomData.state?.currentNightActionIndex || 0;
+  const roles = roomData.roles || {};
+  const allPlayers = Object.keys(roomData.players || {});
+  
+  // Find next role that has players in the game
+  let nextIndex = currentIndex + 1;
+  let nextRole: WerewolfRole | null = null;
+  
+  while (nextIndex < nightActionOrder.length) {
+    const candidateRole = nightActionOrder[nextIndex];
+    // Check if any player has this role
+    const hasPlayers = allPlayers.some(pid => roles[pid] === candidateRole);
+    if (hasPlayers) {
+      nextRole = candidateRole;
+      break;
+    }
+    nextIndex++;
+  }
+  
+  if (nextRole) {
+    // Reset hasActed for ALL players (so new role's players can act)
+    const playerUpdates: Record<string, unknown> = {};
+    for (const pid of allPlayers) {
+      playerUpdates[`players/${pid}/hasActed`] = false;
+    }
+    
+    // Advance to next role
+    await roomRef.update({
+      'meta/activeNightRole': nextRole,
+      'state/currentNightActionIndex': nextIndex,
+      ...playerUpdates,
+    });
+  } else {
+    // No more roles - advance to day
+    await advanceToDay(roomId);
+  }
+}
+
+/**
  * Advance to day phase (internal - called when all players have acted)
  */
 async function advanceToDay(roomId: string): Promise<void> {
@@ -790,6 +958,7 @@ async function advanceToDay(roomId: string): Promise<void> {
 
   await roomRef.update({
     'meta/status': 'day',
+    'meta/activeNightRole': null,  // Clear night role when entering day
     'state/currentPhase': 'day',
     'state/dayEndsAt': dayEndsAt,
   });
@@ -804,6 +973,7 @@ export async function advanceToVoting(
   roomId: string,
   playerId: string
 ): Promise<WerewolfActionResult> {
+  console.log('[SERVER] advanceToVoting called:', { roomId, playerId });
   try {
     const db = getAdminDatabase();
     const roomRef = db.ref(`${ROOMS_BASE}/${roomId}`);
@@ -811,19 +981,23 @@ export async function advanceToVoting(
     // Pre-read room data
     const snapshot = await roomRef.once('value');
     const roomData: WerewolfRoomData | null = snapshot.val();
+    console.log('[SERVER] Room data status:', roomData?.meta?.status);
 
     if (!roomData) {
+      console.log('[SERVER] Room not found');
       return { success: false, error: 'Room not found' };
     }
 
     // Validate phase
     if (roomData.meta.status !== 'day') {
-      return { success: false, error: 'Can only advance to voting from day phase' };
+      console.log('[SERVER] Wrong phase:', roomData.meta.status, '- expected day');
+      return { success: false, error: `Can only advance to voting from day phase (current: ${roomData.meta.status})` };
     }
 
     // Validate host
     const player = roomData.players?.[playerId];
     if (!player?.isHost) {
+      console.log('[SERVER] Not host:', playerId, 'isHost:', player?.isHost);
       return { success: false, error: 'Only the host can advance to voting' };
     }
 
@@ -843,8 +1017,10 @@ export async function advanceToVoting(
       updates[`players/${pid}/vote`] = null;
     }
 
+    console.log('[SERVER] Applying updates:', JSON.stringify(updates));
     // Direct update instead of full-room transaction
     await roomRef.update(updates);
+    console.log('[SERVER] Update complete!');
 
     return { success: true };
   } catch (error) {
@@ -1253,7 +1429,7 @@ export async function updateSelectedRoles(
     // Full validation (werewolf count, role count) happens at startGame() 
     const validRoles: WerewolfRole[] = [
       'werewolf', 'seer', 'robber', 'troublemaker', 'villager',
-      'minion', 'mason', 'drunk', 'insomniac'
+      'minion', 'mason', 'drunk', 'insomniac', 'witch'
     ];
     
     for (const role of selectedRoles) {

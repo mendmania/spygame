@@ -150,10 +150,14 @@ export default function RoomPage({ params }: RoomPageProps) {
   };
 
   const handleAdvanceToVoting = async () => {
+    console.log('[DEBUG] handleAdvanceToVoting called, isAdvancing:', isAdvancing);
     if (isAdvancing) return; // Prevent double-click
     setIsAdvancing(true);
+    console.log('[DEBUG] Calling advanceToVoting server action...');
     const result = await advanceToVoting();
+    console.log('[DEBUG] advanceToVoting result:', result);
     if (!result.success) {
+      console.log('[DEBUG] advanceToVoting failed, resetting isAdvancing');
       setIsAdvancing(false);
     }
   };
@@ -354,6 +358,15 @@ export default function RoomPage({ params }: RoomPageProps) {
               
               {/* Night Progress Indicator */}
               <div className={styles.nightProgress}>
+                {/* Currently acting role indicator */}
+                {roomState?.activeNightRole && (
+                  <div className={styles.activeRoleIndicator}>
+                    <span className={styles.activeRoleLabel}>Currently Acting:</span>
+                    <span className={styles.activeRoleName}>
+                      {getRoleEmoji(roomState.activeNightRole)} {roomState.activeNightRole.charAt(0).toUpperCase() + roomState.activeNightRole.slice(1)}
+                    </span>
+                  </div>
+                )}
                 <div className={styles.progressLabel}>
                   Night Actions: {nightActedCount}/{nightTotalPlayers}
                 </div>
@@ -418,6 +431,8 @@ export default function RoomPage({ params }: RoomPageProps) {
                     nightResult={roomState.nightActionResult}
                     otherPlayers={otherPlayers}
                     isPerforming={nightPhase.isPerforming}
+                    isMyTurn={roomState.isMyTurnToAct}
+                    activeNightRole={roomState.activeNightRole}
                     onPerformAction={nightPhase.performAction}
                     onSkip={nightPhase.skip}
                   />
@@ -450,6 +465,7 @@ export default function RoomPage({ params }: RoomPageProps) {
                     className={`${styles.hostButton} ${styles.primary}`}
                     onClick={handleAdvanceToVoting}
                     disabled={isAdvancing}
+                    title={`Current status: ${roomState?.meta?.status || 'unknown'}`}
                   >
                     {isAdvancing ? '...' : 'Start Voting'}
                   </button>
