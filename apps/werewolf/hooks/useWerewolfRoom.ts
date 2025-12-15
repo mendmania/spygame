@@ -83,6 +83,7 @@ interface UseWerewolfRoomResult {
   
   // Computed
   isInRoom: boolean;
+  wasKicked: boolean;
   isHost: boolean;
   isSpectator: boolean;
   canStart: boolean;
@@ -189,8 +190,10 @@ export function useWerewolfRoom({
   const [hasJoined, setHasJoined] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
   const [joinBlockedReason, setJoinBlockedReason] = useState<'in_progress' | 'room_not_found' | 'full' | null>(null);
+  const [wasKicked, setWasKicked] = useState(false);
   
   const autoJoinAttempted = useRef(false);
+  const wasInRoomRef = useRef(false);
   const gameStatusRef = useRef<string | undefined>(undefined);
   const isHostRef = useRef(false);
 
@@ -436,6 +439,19 @@ export function useWerewolfRoom({
   );
 
   const isInRoom = !!roomState?.currentPlayer;
+  
+  // Detect when player is kicked: was in room, room still exists, but no longer in room
+  useEffect(() => {
+    if (isInRoom) {
+      wasInRoomRef.current = true;
+      setWasKicked(false);
+    } else if (wasInRoomRef.current && roomData && !loading) {
+      // Player was in room, room exists, but player is no longer in it -> kicked
+      setWasKicked(true);
+      wasInRoomRef.current = false;
+    }
+  }, [isInRoom, roomData, loading]);
+
   const isHost = roomState?.isHost ?? false;
   // Spectator: tried to join but blocked, and game is in progress
   const isSpectator = !isInRoom && joinBlockedReason === 'in_progress' && roomData?.meta?.status !== 'waiting';
@@ -499,6 +515,7 @@ export function useWerewolfRoom({
     advanceToVoting,
     castVote,
     isInRoom,
+    wasKicked,
     isHost,
     isSpectator,
     canStart,

@@ -121,6 +121,7 @@ export default function RoomPage({ params }: RoomPageProps) {
     updateDisplayName,
     isHost,
     isSpectator,
+    wasKicked,
     canStart,
     joinBlockedReason,
     startGame,
@@ -147,6 +148,13 @@ export default function RoomPage({ params }: RoomPageProps) {
     selectedRoles,
     updateSelectedRoles,
   } = useWerewolfRoom({ roomId, autoJoin: true });
+
+  // Redirect to home if kicked
+  useEffect(() => {
+    if (wasKicked) {
+      router.replace('/');
+    }
+  }, [wasKicked, router]);
 
   // Role hook
   const roleInfo = useCurrentPlayerRole({
