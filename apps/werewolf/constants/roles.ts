@@ -123,3 +123,22 @@ export function getRoleBackgroundClass(role: WerewolfRole): string {
       return 'bg-gray-900/30 border-gray-700';
   }
 }
+
+/**
+ * Get role image path
+ * 
+ * Images should be placed in /public/roles/{roleName}.png
+ * The function automatically maps role IDs to image paths.
+ * 
+ * To add a new role image:
+ * 1. Add the image file to /public/roles/{role}.png
+ *    (e.g., werewolf.png, seer.png, villager.png)
+ * 2. That's it! No code changes needed.
+ * 
+ * Fallback behavior:
+ * - If image doesn't exist, Next.js will show broken image
+ * - Consider adding a default placeholder image at /public/roles/default.png
+ */
+export function getRoleImagePath(role: WerewolfRole): string {
+  return `/roles/${role}.png`;
+}

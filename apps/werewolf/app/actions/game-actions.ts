@@ -490,7 +490,7 @@ async function executeNightAction({
         // Multiple werewolves - just see each other, action complete
         return {
           success: true,
-          data: { otherWerewolves } as WerewolfNightActionResult,
+          data: { otherWerewolves, isLoneWolf: false } as WerewolfNightActionResult,
         };
       } else if (action === 'werewolf_peek' && typeof target === 'string') {
         // Lone werewolf can peek at one center card
@@ -504,6 +504,7 @@ async function executeNightAction({
           success: true,
           data: {
             otherWerewolves: [],
+            isLoneWolf: true,
             centerCardSeen: seenRole,
           } as WerewolfNightActionResult,
         };
@@ -511,7 +512,7 @@ async function executeNightAction({
         // Lone werewolf chose not to peek (action: 'none' or skip)
         return {
           success: true,
-          data: { otherWerewolves: [] } as WerewolfNightActionResult,
+          data: { otherWerewolves: [], isLoneWolf: true, skipped: true } as WerewolfNightActionResult,
         };
       }
     }
@@ -579,11 +580,11 @@ async function executeNightAction({
         
         return {
           success: true,
-          data: { newRole: targetRole } as WerewolfNightActionResult,
+          data: { newRole: targetRole, robbedPlayerId: target } as WerewolfNightActionResult,
         };
       } else if (action === 'none') {
         // Robber chose not to swap
-        return { success: true, data: {} };
+        return { success: true, data: { skipped: true } as WerewolfNightActionResult };
       } else {
         return { success: false, error: 'Invalid robber action' };
       }
@@ -618,8 +619,11 @@ async function executeNightAction({
           data: { swappedPlayers: [player1, player2] } as WerewolfNightActionResult,
         };
       } else if (action === 'none') {
-        // Troublemaker chose not to swap
-        return { success: true, data: {} };
+        // Troublemaker chose not to swap - return explicit skipped indicator
+        return { 
+          success: true, 
+          data: { skipped: true } as WerewolfNightActionResult 
+        };
       } else {
         return { success: false, error: 'Invalid troublemaker action' };
       }
@@ -748,9 +752,26 @@ async function executeNightAction({
         };
       }
       
+      if (action === 'witch_skip' && typeof target === 'string') {
+        // Witch peeked at a card but chose not to swap - commit the peek info
+        const cardIndex = parseInt(target);
+        if (cardIndex < 0 || cardIndex > 2) {
+          return { success: false, error: 'Invalid center card index' };
+        }
+        const cardKey = `card${cardIndex + 1}` as keyof WerewolfCenterCards;
+        const seenRole = centerCards?.[cardKey];
+        
+        return {
+          success: true,
+          data: { 
+            witchPeekedCard: { index: cardIndex, role: seenRole as WerewolfRole },
+          } as WerewolfNightActionResult,
+        };
+      }
+      
       if (action === 'none') {
-        // Witch chose to peek only, no swap (valid action)
-        return { success: true, data: {} };
+        // Witch chose to skip entirely without peeking (shouldn't normally happen but handle it)
+        return { success: true, data: { skipped: true } as WerewolfNightActionResult };
       }
       
       return { success: false, error: 'Invalid witch action' };
@@ -771,7 +792,7 @@ async function executeNightAction({
 
     case 'villager': {
       // Villagers have no night action
-      return { success: true, data: {} };
+      return { success: true, data: { skipped: true } as WerewolfNightActionResult };
     }
 
     default:
@@ -1069,13 +1090,18 @@ export async function castVote({
     await roomRef.child(`players/${playerId}/vote`).set(targetPlayerId);
 
     // Check if all players have voted
-    const allPlayers = Object.keys(roomData.players || {});
+    // Re-read to get the latest state after recording this vote
     const updatedSnapshot = await roomRef.once('value');
     const updatedData: WerewolfRoomData = updatedSnapshot.val();
+    const allPlayers = Object.keys(updatedData.players || {});
     
-    const allVoted = allPlayers.every(
-      (pid) => updatedData.players?.[pid]?.vote !== null
-    );
+    // Count votes - use typeof check because Firebase RTDB deletes null values
+    // making them undefined, not null
+    const votedCount = allPlayers.filter(
+      (pid) => typeof updatedData.players?.[pid]?.vote === 'string'
+    ).length;
+    
+    const allVoted = votedCount === allPlayers.length;
 
     if (allVoted) {
       // End the game and determine winner

@@ -1,52 +1,411 @@
+/**
+ * RoleCard Styles - One Night Werewolf
+ * 
+ * COPIED FROM SPYFALL GameCard.module.css
+ * Animation timing, transforms, and easing are IDENTICAL:
+ * - perspective: 1000px
+ * - transition: transform 0.8s ease
+ * - transform: rotateY(180deg)
+ * - backface-visibility: hidden
+ * - Animated gradient border with @keyframes spin
+ */
+
+@property --rotate {
+  syntax: '<angle>';
+  initial-value: 132deg;
+  inherits: false;
+}
+
+/* Container with perspective - IDENTICAL to Spyfall .gameCard */
+.gameCard {
+  perspective: 1000px;
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  /* Prevent text selection during hold */
+  user-select: none;
+  -webkit-user-select: none;
+  /* Prevent context menu on long press (mobile) */
+  -webkit-touch-callout: none;
+}
+
+/* Size variants */
+.small {
+  --card-width: 140px;
+  --card-height: 200px;
+}
+
+.medium {
+  --card-width: 300px;
+  --card-height: 500px;
+}
+
+.large {
+  --card-width: 340px;
+  --card-height: 560px;
+}
+
+/* Main card - IDENTICAL animation to Spyfall .card */
 .card {
+  position: relative;
+  width: var(--card-width);
+  height: var(--card-height);
+  transition: transform 0.8s ease; /* EXACT same as Spyfall */
+  transform-style: preserve-3d;
+}
+
+/* Flipped state - EXACT same as Spyfall .showCardData */
+.card.showCardData {
+  transform: rotateY(180deg);
+}
+
+/* Card faces - shared styles (IDENTICAL to Spyfall) */
+.cardFront,
+.cardBack {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  background: #191c29;
+  border-radius: 1rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 2rem;
+  text-align: center;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+/* Front face - Role Image (what player normally sees) */
+.cardFront {
+  color: #88d5bf;
+  padding: 0;
+  overflow: hidden;
+}
+
+/* Back face - Role Details (revealed on hold) */
+.cardBack {
+  color: #58c7fa;
+  transform: rotateY(180deg);
+}
+
+/* Animated gradient border - EXACT COPY from Spyfall */
+.cardFront::before {
+  content: '';
+  width: calc(100% + 6px);
+  height: calc(100% + 6px);
+  border-radius: 1rem;
+  background-image: linear-gradient(
+    var(--rotate),
+    #5ddcff,
+    #3c67e3 43%,
+    #4e00c2
+  );
+  position: absolute;
+  z-index: -1;
+  top: -3px;
+  left: -3px;
+  animation: spin 2.5s linear infinite;
+}
+
+.cardFront::after {
+  position: absolute;
+  content: '';
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: -1;
+  height: 100%;
+  width: 100%;
+  margin: 0 auto;
+  filter: blur(45px);
+  background-image: linear-gradient(
+    var(--rotate),
+    #5ddcff,
+    #3c67e3 43%,
+    #4e00c2
+  );
+  opacity: 0.7;
+  transition: opacity 0.5s;
+  animation: spin 2.5s linear infinite;
+}
+
+.cardBack::before {
+  content: '';
+  width: calc(100% + 6px);
+  height: calc(100% + 6px);
+  border-radius: 1rem;
+  background-image: linear-gradient(
+    var(--rotate),
+    #5ddcff,
+    #3c67e3 43%,
+    #4e00c2
+  );
+  position: absolute;
+  z-index: -1;
+  top: -3px;
+  left: -3px;
+  animation: spin 2.5s linear infinite;
+}
+
+.cardBack::after {
+  position: absolute;
+  content: '';
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: -1;
+  height: 100%;
+  width: 100%;
+  margin: 0 auto;
+  filter: blur(45px);
+  background-image: linear-gradient(
+    var(--rotate),
+    #5ddcff,
+    #3c67e3 43%,
+    #4e00c2
+  );
+  opacity: 0.7;
+  transition: opacity 0.5s;
+  animation: spin 2.5s linear infinite;
+}
+
+/* EXACT COPY of Spyfall animation */
+@keyframes spin {
+  0% {
+    --rotate: 0deg;
+  }
+  100% {
+    --rotate: 360deg;
+  }
+}
+
+/* ===========================================
+   FRONT FACE - Generic Card Back (same for all)
+   =========================================== */
+
+.cardBackDesign {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 1rem;
+  overflow: hidden;
+}
+
+.cardBackImage {
+  object-fit: cover;
+  object-position: center;
+}
+
+.tapHint {
+  position: absolute;
+  bottom: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.8);
+  text-transform: uppercase;
+  letter-spacing: 0.1rem;
+  background: rgba(0, 0, 0, 0.6);
+  padding: 0.35rem 0.75rem;
+  border-radius: 1rem;
+  backdrop-filter: blur(4px);
+  margin: 0;
+  animation: pulse 2s ease-in-out infinite;
+  z-index: 2;
+}
+
+.small .tapHint {
+  font-size: 0.6rem;
+  padding: 0.25rem 0.5rem;
+}
+
+/* ===========================================
+   BACK FACE - Role Image with Details Button
+   =========================================== */
+
+.roleImageWrapper {
+  position: absolute;
+  inset: 0;
+  border-radius: 1rem;
+  overflow: hidden;
+  z-index: 1;
+}
+
+.roleImage {
+  object-fit: cover;
+  object-position: center;
+}
+
+.detailsButton {
+  position: absolute;
+  bottom: 1rem;
+  left: 1rem;
+  right: 1rem;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #fff;
+  text-transform: uppercase;
+  letter-spacing: 0.15rem;
+  background: linear-gradient(135deg, #5ddcff 0%, #3c67e3 50%, #4e00c2 100%);
+  padding: 1rem 1.5rem;
+  border-radius: 1rem;
+  border: none;
+  cursor: pointer;
+  z-index: 10;
+  transition: transform 0.2s, box-shadow 0.2s;
+  box-shadow: 0 4px 15px rgba(93, 220, 255, 0.4);
+  min-height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Mobile touch improvements */
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: rgba(93, 220, 255, 0.3);
+}
+
+.detailsButton:hover {
+  transform: scale(1.02);
+  box-shadow: 0 6px 20px rgba(93, 220, 255, 0.6);
+}
+
+.detailsButton:active {
+  transform: scale(0.98);
+}
+
+.small .detailsButton {
+  font-size: 0.75rem;
+  padding: 0.75rem 1rem;
+  bottom: 0.5rem;
+  left: 0.5rem;
+  right: 0.5rem;
+  min-height: 44px;
+}
+
+/* Details Overlay */
+.detailsOverlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(25, 28, 41, 0.95);
+  border-radius: 1rem;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 0.5rem;
   padding: 1.5rem;
+  z-index: 2;
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.roleEmoji {
+  font-size: 3rem;
+}
+
+.small .roleEmoji {
+  font-size: 2rem;
+}
+
+.large .roleEmoji {
+  font-size: 4rem;
+}
+
+.roleName {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #58c7fa;
+  margin: 0;
+}
+
+.small .roleName {
+  font-size: 1rem;
+}
+
+.large .roleName {
+  font-size: 2rem;
+}
+
+.swappedBadge {
+  background: rgba(255, 165, 0, 0.2);
+  color: #ffa94d;
+  font-size: 0.75rem;
+  padding: 0.25rem 0.75rem;
+  border-radius: 0.25rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.actionDescription {
+  font-size: 0.85rem;
+  color: #88d5bf;
+  font-style: italic;
+  margin: 0;
+  max-width: 90%;
+}
+
+.small .actionDescription {
+  display: none;
+}
+
+.description {
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.7);
+  margin: 0;
+  max-width: 90%;
+  line-height: 1.4;
+}
+
+.small .description {
+  font-size: 0.7rem;
+}
+
+.teamBadge {
+  font-size: 0.8rem;
+  padding: 0.35rem 1rem;
   border-radius: 1rem;
-  border: 2px solid;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-  cursor: default;
+  margin-top: 0.5rem;
 }
 
-.card:hover {
-  transform: translateY(-2px);
+.teamBadge[data-team="werewolf"] {
+  background: rgba(255, 100, 100, 0.2);
+  color: #ff6b6b;
 }
 
-/* Sizes */
-.small {
-  width: 120px;
-  min-height: 140px;
-  padding: 0.75rem;
+.teamBadge[data-team="village"] {
+  background: rgba(88, 199, 250, 0.2);
+  color: #58c7fa;
 }
 
-.medium {
-  width: 200px;
-  min-height: 240px;
+.teamBadge[data-team="neutral"] {
+  background: rgba(255, 169, 77, 0.2);
+  color: #ffa94d;
 }
 
-.large {
-  width: 280px;
-  min-height: 320px;
-  padding: 2rem;
-}
-
-/* Hidden card */
-.hidden {
-  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-  border-color: rgba(255, 255, 255, 0.1);
-}
+/* ===========================================
+   HIDDEN CARD (for non-revealed cards)
+   =========================================== */
 
 .hiddenContent {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.75rem;
 }
 
 .hiddenIcon {
   font-size: 3rem;
+  opacity: 0.7;
+}
+
+.small .hiddenIcon {
+  font-size: 2rem;
 }
 
 .hiddenText {
@@ -56,68 +415,39 @@
   letter-spacing: 0.1rem;
 }
 
-/* Card content */
-.emoji {
-  font-size: 3rem;
-  margin-bottom: 0.5rem;
+/* ===========================================
+   ANIMATIONS
+   =========================================== */
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
 }
 
-.small .emoji {
-  font-size: 2rem;
-  margin-bottom: 0.25rem;
-}
+/* ===========================================
+   RESPONSIVE - Same breakpoint as Spyfall
+   =========================================== */
 
-.large .emoji {
-  font-size: 4rem;
-  margin-bottom: 1rem;
-}
-
-.roleName {
-  font-size: 1.25rem;
-  font-weight: bold;
-  color: #fff;
-  margin: 0 0 0.25rem;
-}
-
-.small .roleName {
-  font-size: 0.875rem;
-}
-
-.large .roleName {
-  font-size: 1.5rem;
-}
-
-.swappedBadge {
-  background: rgba(255, 165, 0, 0.2);
-  color: #ffa94d;
-  font-size: 0.75rem;
-  padding: 0.25rem 0.5rem;
-  border-radius: 0.25rem;
-  margin-bottom: 0.5rem;
-}
-
-.actionDescription {
-  font-size: 0.75rem;
-  color: rgba(255, 255, 255, 0.7);
-  text-align: center;
-  margin: 0.5rem 0;
-  font-style: italic;
-}
-
-.description {
-  font-size: 0.875rem;
-  color: rgba(255, 255, 255, 0.6);
-  text-align: center;
-  margin: 0.5rem 0;
-}
-
-.small .description {
-  display: none;
-}
-
-.teamBadge {
-  font-size: 0.75rem;
-  color: rgba(255, 255, 255, 0.5);
-  margin-top: auto;
-  padding-top: 0.5rem;
+@media (max-width: 640px) {
+  .medium {
+    --card-width: 260px;
+    --card-height: 420px;
+  }
+  
+  .large {
+    --card-width: 280px;
+    --card-height: 460px;
+  }
+  
+  .roleName {
+    font-size: 1.5rem;
+  }
+  
+  .description {
+    font-size: 0.8rem;
+  }
 }
