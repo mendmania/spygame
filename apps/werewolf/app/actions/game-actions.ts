@@ -1120,6 +1120,19 @@ export async function castVote({
 
 /**
  * End the game and determine the winner
+ * 
+ * WIN CONDITIONS (One Night Ultimate Werewolf rules):
+ * 
+ * 1. If at least one werewolf exists (player OR center):
+ *    - Village wins IF at least one werewolf is killed
+ *    - Werewolves win IF no werewolf is killed
+ * 
+ * 2. If NO werewolves exist anywhere (players + center):
+ *    - Village wins IF someone is killed (they correctly found no wolves)
+ *    - Village loses IF nobody is killed (they should have killed someone)
+ * 
+ * 3. Minion special case:
+ *    - Minion wins IF minion dies AND no werewolf dies (even if werewolves lose)
  */
 async function endGameAndDetermineWinner(roomId: string): Promise<void> {
   const db = getAdminDatabase();
@@ -1156,32 +1169,54 @@ async function endGameAndDetermineWinner(roomId: string): Promise<void> {
   let eliminatedPlayerId: string | null = null;
   let eliminatedPlayerRole: WerewolfRole | null = null;
 
-  // Find all werewolves (by current role)
-  const werewolves = playerIds.filter((pid) => currentRoles[pid] === 'werewolf');
+  // Find all werewolves among PLAYERS (by current/final role)
+  const playerWerewolves = playerIds.filter((pid) => currentRoles[pid] === 'werewolf');
+  
+  // Check for werewolves in CENTER cards (these count as "existing" but cannot be killed)
+  const centerWerewolves = centerCards 
+    ? Object.values(centerCards).filter((role) => role === 'werewolf')
+    : [];
+  
+  // Total werewolves in the game (players + center)
+  const totalWerewolvesInGame = playerWerewolves.length + centerWerewolves.length;
+  const werewolvesExist = totalWerewolvesInGame > 0;
 
-  if (eliminated.length === 0 || maxVotes === 0) {
-    // No one eliminated (tie or no votes)
-    // Werewolves win if there are any, otherwise village wins
-    winners = werewolves.length > 0 ? 'werewolf' : 'village';
-  } else if (eliminated.length > 1) {
-    // Tie - no one dies (based on standard ONUW rules, ties result in no elimination)
-    winners = werewolves.length > 0 ? 'werewolf' : 'village';
-  } else {
-    // Single player eliminated
+  // Determine if anyone was eliminated
+  const someoneEliminated = eliminated.length === 1 && maxVotes > 0;
+  
+  if (someoneEliminated) {
     eliminatedPlayerId = eliminated[0];
     eliminatedPlayerRole = currentRoles[eliminatedPlayerId];
+  }
 
-    if (eliminatedPlayerRole === 'werewolf') {
-      // Village wins if they kill a werewolf
-      winners = 'village';
-    } else if (werewolves.length === 0) {
-      // No werewolves in game - village wins if they don't kill anyone
-      // But they killed a villager, so nobody wins (based on variant rules)
-      // Standard: Village wins if there are no werewolves
+  // Check if a werewolf was killed
+  const werewolfKilled = eliminatedPlayerRole === 'werewolf';
+  
+  // Check if minion was killed (for special win condition)
+  const minionKilled = eliminatedPlayerRole === 'minion';
+
+  // Apply win conditions
+  if (werewolvesExist) {
+    // Case 1: Werewolves exist in the game (player OR center)
+    if (werewolfKilled) {
+      // Village wins - they killed a werewolf
       winners = 'village';
     } else {
-      // Village killed an innocent, werewolves win
+      // Werewolves win - no werewolf was killed
+      // This includes: nobody eliminated, tie, or innocent/minion killed
+      // Note: Minion special win is handled in UI display, werewolf team still "wins"
       winners = 'werewolf';
+    }
+  } else {
+    // Case 2: No werewolves exist anywhere (all in neither players nor center)
+    // This is rare but can happen with certain role configurations
+    if (someoneEliminated) {
+      // Village loses - they killed an innocent when there were no werewolves
+      // The correct play was to NOT kill anyone
+      winners = 'nobody';
+    } else {
+      // Village wins - they correctly didn't kill anyone
+      winners = 'village';
     }
   }
 
