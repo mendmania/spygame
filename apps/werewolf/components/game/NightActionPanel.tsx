@@ -9,16 +9,22 @@
  * TURN ENFORCEMENT:
  * - Shows disabled state when it's not your role's turn
  * - Displays which role is currently acting
+ * 
+ * UI IMPROVEMENTS:
+ * - Role image header with name and description
+ * - Consistent button styling
+ * - Clear call-to-action buttons
  */
 
 import { useState } from 'react';
+import Image from 'next/image';
 import type {
   WerewolfRole,
   NightActionType,
   WerewolfNightActionResult,
   WerewolfActionResult,
 } from '@vbz/shared-types';
-import { getRoleEmoji, ROLE_CONFIGS } from '../../constants/roles';
+import { getRoleEmoji, ROLE_CONFIGS, getRoleImagePath } from '../../constants/roles';
 import styles from './NightActionPanel.module.css';
 
 interface NightActionPanelProps {
@@ -57,29 +63,57 @@ export function NightActionPanel({
 
   const config = ROLE_CONFIGS[role];
   const emoji = getRoleEmoji(role);
+  const imagePath = getRoleImagePath(role);
 
   // Check if player has a persisted night result (this survives hasActed reset)
   // nightResult is stored in privatePlayerData and persists throughout the night
   const hasPersistedResult = nightResult && Object.keys(nightResult).length > 0 && !nightResult.isDiscoveryOnly;
+
+  // Role header component with image
+  const RoleHeader = () => (
+    <div className={styles.roleHeader}>
+      <div className={styles.roleImageContainer}>
+        <Image
+          src={imagePath}
+          alt={config.name}
+          width={56}
+          height={56}
+          className={styles.roleHeaderImage}
+          unoptimized
+        />
+      </div>
+      <div className={styles.roleHeaderInfo}>
+        <h3 className={styles.roleHeaderTitle}>
+          <span className={styles.roleHeaderEmoji}>{emoji}</span>
+          {config.name}
+        </h3>
+        <p className={styles.roleHeaderAction}>{config.actionDescription || 'No special action'}</p>
+      </div>
+    </div>
+  );
 
   // If we have a persisted result OR hasActed is true OR completed locally, show the result screen
   // This ensures the result stays visible even when hasActed is reset for the next role
   if (hasActed || hasPersistedResult || completedActionLocally) {
     return (
       <div className={styles.panel}>
-        <p className={styles.actionComplete}>✓ Night Action Complete</p>
-        <NightActionResult role={role} result={nightResult} otherPlayers={otherPlayers} />
-        <p className={styles.waiting}>Waiting for other players...</p>
+        <RoleHeader />
+        <div className={styles.completedSection}>
+          <p className={styles.actionComplete}>✓ Night Action Complete</p>
+          <NightActionResult role={role} result={nightResult} otherPlayers={otherPlayers} />
+          <p className={styles.waiting}>Waiting for other players...</p>
+        </div>
       </div>
     );
   }
 
-  // If it's not this player's turn, show waiting state
+  // If it's not this player's turn, show waiting state with active role info
   if (!isMyTurn) {
     return (
       <div className={styles.panel}>
+        <RoleHeader />
         <div className={styles.waitingForTurn}>
-          <p className={styles.notYourTurn}>🌙 Not your turn</p>
+          <p className={styles.notYourTurn}>🌙 Not your turn yet</p>
           <p className={styles.waitingMessage}>
             Keep your eyes closed. Your turn will come...
           </p>
@@ -206,8 +240,10 @@ export function NightActionPanel({
 
   return (
     <div className={styles.panel}>
-      <p className={styles.actionDescription}>{config.actionDescription || 'No special action'}</p>
-      {renderActionUI()}
+      <RoleHeader />
+      <div className={styles.actionSection}>
+        {renderActionUI()}
+      </div>
     </div>
   );
 }

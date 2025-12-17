@@ -4,7 +4,7 @@
   background: linear-gradient(135deg, rgba(30, 30, 45, 0.98), rgba(20, 20, 35, 0.98));
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 16px;
-  padding: 1.25rem;
+  padding: 1rem;
   margin-bottom: 1rem;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
 }
@@ -111,6 +111,13 @@
   border-color: rgba(96, 165, 250, 0.4);
 }
 
+.deckCardImage {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+  border-radius: 4px;
+}
+
 /* Role Categories */
 .categories {
   display: flex;
@@ -168,8 +175,8 @@
 /* Role Grid */
 .roleGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
-  gap: 0.6rem;
+  grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+  gap: 0.5rem;
 }
 
 /* Role Card */
@@ -178,10 +185,10 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 0.6rem 0.4rem;
+  padding: 0.5rem 0.3rem;
   background: rgba(255, 255, 255, 0.04);
   border: 2px solid transparent;
-  border-radius: 10px;
+  border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s ease;
 }
@@ -210,9 +217,9 @@
 /* Role Image */
 .roleImageWrapper {
   position: relative;
-  width: 50px;
-  height: 70px;
-  margin-bottom: 0.4rem;
+  width: 44px;
+  height: 60px;
+  margin-bottom: 0.3rem;
 }
 
 .roleImage {
@@ -249,21 +256,21 @@
 /* Role Controls */
 .roleControls {
   display: flex;
-  gap: 0.4rem;
+  gap: 0.3rem;
 }
 
 .controlBtn {
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.1rem;
+  font-size: 1rem;
   font-weight: 700;
   color: #fff;
   background: rgba(255, 255, 255, 0.1);
   border: none;
-  border-radius: 6px;
+  border-radius: 5px;
   cursor: pointer;
   transition: all 0.15s ease;
 }

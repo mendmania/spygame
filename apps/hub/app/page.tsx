@@ -1,6 +1,7 @@
 import { Card, CardHeader, CardContent } from '@vbz/ui';
 
 const SPYFALL_URL = process.env.NEXT_PUBLIC_SPYFALL_URL || 'https://spyfall.virtualboardzone.com';
+const WEREWOLF_URL = process.env.NEXT_PUBLIC_WEREWOLF_URL || 'https://werewolf.virtualboardzone.com';
 
 const GAMES = [
   {
@@ -13,20 +14,20 @@ const GAMES = [
     available: true,
   },
   {
+    id: 'werewolf',
+    name: 'Werewolf',
+    description: 'Villagers vs Werewolves. Deduce who the werewolves are before it\'s too late.',
+    players: '3-10',
+    duration: '10 min',
+    href: WEREWOLF_URL,
+    available: true,
+  },
+  {
     id: 'codenames',
     name: 'Codenames',
     description: 'Give one-word clues to help your team find their agents.',
     players: '4-8',
     duration: '15 min',
-    href: '#',
-    available: false,
-  },
-  {
-    id: 'werewolf',
-    name: 'Werewolf',
-    description: 'Villagers vs Werewolves. Deduce who the werewolves are before it\'s too late.',
-    players: '6-12',
-    duration: '20 min',
     href: '#',
     available: false,
   },

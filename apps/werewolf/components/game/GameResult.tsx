@@ -10,8 +10,10 @@
  * - Center cards
  */
 
+import Image from 'next/image';
 import type { WerewolfGameResult, WerewolfRole } from '@vbz/shared-types';
-import { getRoleEmoji, ROLE_CONFIGS, getRoleBackgroundClass } from '../../constants/roles';
+import { getRoleEmoji, ROLE_CONFIGS, getRoleBackgroundClass, getRoleImagePath } from '../../constants/roles';
+import { NightActionHistory } from './NightActionHistory';
 import styles from './GameResult.module.css';
 
 interface GameResultProps {
@@ -41,13 +43,13 @@ export function GameResult({
   const getWinnerDisplay = () => {
     switch (winners) {
       case 'village':
-        return { emoji: '🏘️', text: 'Village Wins!', color: 'text-blue-400' };
+        return { text: 'Village Wins!', colorClass: styles.villageWin };
       case 'werewolf':
-        return { emoji: '🐺', text: 'Werewolves Win!', color: 'text-red-500' };
+        return { text: 'Werewolves Win!', colorClass: styles.werewolfWin };
       case 'nobody':
-        return { emoji: '💀', text: 'Nobody Wins!', color: 'text-gray-400' };
+        return { text: 'Nobody Wins!', colorClass: styles.nobodyWin };
       default:
-        return { emoji: '❓', text: 'Game Ended', color: 'text-gray-400' };
+        return { text: 'Game Ended', colorClass: styles.nobodyWin };
     }
   };
 
@@ -65,15 +67,14 @@ export function GameResult({
     <div className={styles.container}>
       {/* Winner announcement */}
       <div className={styles.winnerSection}>
-        <span className={styles.winnerEmoji}>{winnerDisplay.emoji}</span>
-        <h2 className={`${styles.winnerText} ${winnerDisplay.color}`}>
+        {/* Player result first - big and prominent */}
+        <h1 className={`${styles.playerResultBig} ${playerWon ? styles.wonText : styles.lostText}`}>
+          {playerWon ? 'You Won!' : 'You Lost!'}
+        </h1>
+        {/* Team that won - secondary */}
+        <p className={`${styles.teamResult} ${winnerDisplay.colorClass}`}>
           {winnerDisplay.text}
-        </h2>
-        {playerWon !== null && (
-          <p className={styles.playerResult}>
-            {playerWon ? '🎉 You won!' : '😢 Better luck next time!'}
-          </p>
-        )}
+        </p>
       </div>
 
       {/* Eliminated player */}
@@ -81,9 +82,20 @@ export function GameResult({
         <div className={styles.eliminatedSection}>
           <h3 className={styles.sectionTitle}>Eliminated</h3>
           <div className={styles.eliminatedPlayer}>
-            <span className={styles.eliminatedEmoji}>
-              {eliminatedPlayerRole ? getRoleEmoji(eliminatedPlayerRole) : '❓'}
-            </span>
+            <div className={styles.eliminatedImage}>
+              {eliminatedPlayerRole ? (
+                <Image
+                  src={getRoleImagePath(eliminatedPlayerRole)}
+                  alt={ROLE_CONFIGS[eliminatedPlayerRole].name}
+                  width={48}
+                  height={48}
+                  className={styles.roleImage}
+                  unoptimized
+                />
+              ) : (
+                <span className={styles.unknownRole}>?</span>
+              )}
+            </div>
             <div className={styles.eliminatedInfo}>
               <span className={styles.eliminatedName}>
                 {players.find((p) => p.id === eliminatedPlayerId)?.displayName || 'Unknown'}
@@ -118,9 +130,20 @@ export function GameResult({
                 key={player.id}
                 className={`${styles.playerRole} ${isCurrentPlayer ? styles.currentPlayer : ''}`}
               >
-                <span className={styles.roleEmoji}>
-                  {finalRole ? getRoleEmoji(finalRole) : '❓'}
-                </span>
+                <div className={styles.roleImageWrapper}>
+                  {finalRole ? (
+                    <Image
+                      src={getRoleImagePath(finalRole)}
+                      alt={config?.name || 'Unknown'}
+                      width={36}
+                      height={36}
+                      className={styles.roleImage}
+                      unoptimized
+                    />
+                  ) : (
+                    <span className={styles.unknownRole}>?</span>
+                  )}
+                </div>
                 <div className={styles.roleInfo}>
                   <span className={styles.playerName}>
                     {player.displayName}
@@ -155,6 +178,15 @@ export function GameResult({
         </div>
       </div>
 
+      {/* Night Action History */}
+      {result.nightActions && Object.keys(result.nightActions).length > 0 && (
+        <NightActionHistory
+          nightActions={result.nightActions}
+          players={players}
+          originalRoles={originalRoles}
+        />
+      )}
+
       {/* Play again button */}
       {isHost && onPlayAgain && (
         <button className={styles.playAgainButton} onClick={onPlayAgain}>
@@ -170,11 +202,20 @@ export function GameResult({
 
 function CenterCard({ role, index }: { role: WerewolfRole; index: number }) {
   const config = ROLE_CONFIGS[role];
-  const emoji = getRoleEmoji(role);
+  const imagePath = getRoleImagePath(role);
 
   return (
     <div className={styles.centerCard}>
-      <span className={styles.centerCardEmoji}>{emoji}</span>
+      <div className={styles.centerCardImage}>
+        <Image
+          src={imagePath}
+          alt={config.name}
+          width={40}
+          height={40}
+          className={styles.roleImage}
+          unoptimized
+        />
+      </div>
       <span className={styles.centerCardName}>{config.name}</span>
     </div>
   );

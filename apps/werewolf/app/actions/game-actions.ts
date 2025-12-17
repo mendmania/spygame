@@ -118,7 +118,7 @@ export async function startGame(
       return { success: false, error: `Maximum ${MAX_PLAYERS} players allowed (currently ${playerCount})` };
     }
     
-    // Use transaction ONLY to atomically update status from 'waiting' to 'night'
+    // Use transaction ONLY to atomically update status from 'waiting' to 'reveal'
     // This prevents race conditions where two clicks start the game simultaneously
     let transactionError: string | null = null;
     let transactionCommitted = false;
@@ -126,12 +126,12 @@ export async function startGame(
     await roomRef.child('meta/status').transaction((currentStatus) => {
       if (currentStatus === 'waiting') {
         transactionCommitted = true;
-        return 'night';
+        return 'reveal';
       } else if (currentStatus === null) {
-        // Admin SDK may pass null initially - return 'night' to set it
+        // Admin SDK may pass null initially - return 'reveal' to set it
         // The actual current value will be checked on server
         transactionCommitted = true;
-        return 'night';
+        return 'reveal';
       } else {
         transactionError = `Cannot start: game is currently "${currentStatus}"`;
         return; // Abort
@@ -215,13 +215,13 @@ export async function startGame(
     const discussionTime = roomData.meta.settings?.discussionTime || DEFAULT_DISCUSSION_TIME;
     const votingTime = roomData.meta.settings?.votingTime || DEFAULT_VOTING_TIME;
     
-    // Night phase doesn't have a timer - advances when all players have acted
+    // Start in reveal phase - night phase begins when all players are ready
     const gameState: WerewolfGameState = {
       startedAt: now,
       endsAt: now + (discussionTime + votingTime) * 1000, // Estimated total time
       dayEndsAt: null,
       votingEndsAt: null,
-      currentPhase: 'night',
+      currentPhase: 'reveal',
       nightActionOrder,
       currentNightActionIndex: 0,
     };
@@ -244,13 +244,14 @@ export async function startGame(
       playerUpdates[`players/${pid}/isReady`] = false;
     }
 
-    // Determine the first active night role
-    const firstNightRole = nightActionOrder.length > 0 ? nightActionOrder[0] : null;
+    // During reveal phase, activeNightRole should be null
+    // It will be set when transitioning to night phase
 
-    // Atomic write
+    // Atomic write - start in reveal phase, not night
     await roomRef.update({
-      'meta/status': 'night',
-      'meta/activeNightRole': firstNightRole,  // Set the first role to act
+      'meta/status': 'reveal',
+      'meta/activeNightRole': null,  // No active role during reveal
+      'meta/gameRoles': rolesForGame,  // Store all roles for public display
       roles: playerRoles,
       currentRoles: { ...playerRoles }, // Copy for tracking swaps
       centerCards,
@@ -342,11 +343,12 @@ export async function performNightAction({
 
     // Special case: werewolf_discover is a non-committing action to check for other werewolves
     // This allows lone werewolves to see they're alone, then decide whether to peek
-    const isWerewolfDiscovery = action === 'werewolf_discover';
+    // Similarly, witch_peek is a non-committing action to peek at a center card before deciding to swap
+    const isDiscoveryAction = action === 'werewolf_discover' || action === 'witch_peek';
 
-    // For werewolf discovery, skip hasActed check (it's read-only discovery)
+    // For discovery actions, skip hasActed check (it's read-only discovery)
     // For all other actions, use transaction on hasActed field to prevent double-action
-    if (!isWerewolfDiscovery) {
+    if (!isDiscoveryAction) {
       // Check if already acted (pre-check to fail fast)
       if (player.hasActed) {
         return { success: false, error: 'You have already performed your night action' };
@@ -381,15 +383,15 @@ export async function performNightAction({
 
     if (!result.success) {
       // Revert hasActed on error
-      if (!isWerewolfDiscovery) {
+      if (!isDiscoveryAction) {
         await roomRef.child(`players/${playerId}/hasActed`).set(false);
       }
       return result;
     }
 
-    // For werewolf_discover, just return the result without storing anything
+    // For discovery actions, just return the result without storing anything
     // This allows the player to then make their actual choice (peek or skip)
-    if (isWerewolfDiscovery) {
+    if (isDiscoveryAction) {
       return { success: true, data: result.data };
     }
 
@@ -815,6 +817,105 @@ export async function skipNightAction(
 }
 
 /**
+ * Set player ready for night phase (during reveal phase)
+ * 
+ * Called when a player has seen their role and is ready to proceed to night actions.
+ * When ALL players are ready, automatically transitions to night phase.
+ * 
+ * RACE CONDITION PROTECTION:
+ * Uses transaction on isReady field and re-reads after update to check all players.
+ */
+export async function setPlayerReadyForNight(
+  roomId: string,
+  playerId: string
+): Promise<WerewolfActionResult> {
+  try {
+    const db = getAdminDatabase();
+    const roomRef = db.ref(`${ROOMS_BASE}/${roomId}`);
+
+    // Pre-read room data for validation
+    const snapshot = await roomRef.once('value');
+    const roomData: WerewolfRoomData | null = snapshot.val();
+
+    if (!roomData) {
+      return { success: false, error: 'Room not found' };
+    }
+
+    // Validate we're in reveal phase
+    if (roomData.meta.status !== 'reveal') {
+      return { success: false, error: 'Can only set ready during reveal phase' };
+    }
+
+    // Validate player exists
+    const player = roomData.players?.[playerId];
+    if (!player) {
+      return { success: false, error: 'Player not found in room' };
+    }
+
+    // If already ready, no need to update
+    if (player.isReady) {
+      return { success: true };
+    }
+
+    // Set player as ready using transaction for atomic update
+    const isReadyRef = roomRef.child(`players/${playerId}/isReady`);
+    const transactionResult = await isReadyRef.transaction((currentIsReady: boolean | null) => {
+      // If already ready, no change needed
+      if (currentIsReady === true) {
+        return; // Abort - no change
+      }
+      return true;
+    });
+
+    if (!transactionResult.committed) {
+      // Already ready, return success
+      return { success: true };
+    }
+
+    // Re-read room to check if ALL players are now ready
+    const updatedSnapshot = await roomRef.once('value');
+    const updatedRoomData: WerewolfRoomData | null = updatedSnapshot.val();
+
+    if (!updatedRoomData) {
+      return { success: true }; // Room was deleted? Just return success
+    }
+
+    const players = updatedRoomData.players || {};
+    const playerIds = Object.keys(players);
+    const allReady = playerIds.every((pid) => players[pid]?.isReady);
+
+    if (allReady) {
+      // All players are ready - transition to night phase!
+      const nightActionOrder = updatedRoomData.state?.nightActionOrder || [];
+      const firstNightRole = nightActionOrder.length > 0 ? nightActionOrder[0] : null;
+
+      // Reset hasActed for all players for the night phase
+      const playerUpdates: Record<string, unknown> = {};
+      for (const pid of playerIds) {
+        playerUpdates[`players/${pid}/hasActed`] = false;
+      }
+
+      // Transition to night
+      await roomRef.update({
+        'meta/status': 'night',
+        'meta/activeNightRole': firstNightRole,
+        'state/currentPhase': 'night',
+        'state/currentNightActionIndex': 0,
+        ...playerUpdates,
+      });
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error('setPlayerReadyForNight error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to set ready',
+    };
+  }
+}
+
+/**
  * Check if night phase is complete
  * 
  * NIGHT COMPLETE CONDITIONS:
@@ -1228,6 +1329,7 @@ async function endGameAndDetermineWinner(roomId: string): Promise<void> {
     finalRoles: currentRoles,
     originalRoles: roomData.roles || {},
     centerCards: centerCards as WerewolfCenterCards,
+    nightActions: roomData.nightActions || {},
   };
 
   await roomRef.update({
@@ -1274,6 +1376,7 @@ export async function endGame(
       finalRoles: currentRoles,
       originalRoles: roomData.roles || {},
       centerCards: roomData.centerCards as WerewolfCenterCards,
+      nightActions: roomData.nightActions || {},
     };
 
     await roomRef.update({

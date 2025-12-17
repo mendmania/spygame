@@ -16,6 +16,7 @@ export interface WerewolfPlayerDisplay {
   hasActed?: boolean;
   vote?: string | null;
   role?: string; // Only shown in end phase
+  isReady?: boolean; // Ready status for reveal phase
 }
 
 interface PlayersListProps {
@@ -24,6 +25,7 @@ interface PlayersListProps {
   showVotes?: boolean;
   showRoles?: boolean;
   showActions?: boolean;
+  showReady?: boolean; // Show ready status (for reveal phase)
   canKick?: boolean;
   canVote?: boolean;
   onKick?: (playerId: string) => void;
@@ -38,6 +40,7 @@ export function PlayersList({
   showVotes = false,
   showRoles = false,
   showActions = false,
+  showReady = false,
   canKick = false,
   canVote = false,
   onKick,
@@ -55,11 +58,20 @@ export function PlayersList({
     });
   }
 
+  // Count ready players for reveal phase
+  const readyCount = showReady ? players.filter(p => p.isReady).length : 0;
+  const totalPlayers = players.length;
+
   return (
     <div className={styles.container}>
       <h3 className={styles.title}>
         <span className={styles.titleIcon}>👥</span>
         Players ({players.length})
+        {showReady && (
+          <span className={styles.readyCounter}>
+            ✓ {readyCount}/{totalPlayers} ready
+          </span>
+        )}
       </h3>
       <ul className={styles.list}>
         {players.map((player, index) => {
@@ -76,6 +88,7 @@ export function PlayersList({
                 ${isCurrentPlayer ? styles.currentPlayer : ''}
                 ${isHighlighted ? styles.highlighted : ''}
                 ${isVotedFor ? styles.votedFor : ''}
+                ${showReady && player.isReady ? styles.ready : ''}
               `}
             >
               <span className={styles.index}>{index + 1}</span>
@@ -84,6 +97,13 @@ export function PlayersList({
                 {isCurrentPlayer && <span className={styles.youBadge}>(You)</span>}
                 {player.isHost && <span className={styles.adminBadge}>👑</span>}
               </span>
+              
+              {/* Show ready status during reveal phase */}
+              {showReady && (
+                <span className={`${styles.readyStatus} ${player.isReady ? styles.isReady : ''}`}>
+                  {player.isReady ? '✓' : '⏳'}
+                </span>
+              )}
               
               {/* Show action status during night */}
               {showActions && (
