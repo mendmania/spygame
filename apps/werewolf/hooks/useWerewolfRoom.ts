@@ -42,6 +42,7 @@ import {
   castVote as castVoteAction,
   handlePlayerLeave,
   updateSelectedRoles as updateSelectedRolesAction,
+  setPlayerReadyForNight as setPlayerReadyForNightAction,
 } from '../app/actions/game-actions';
 import { NIGHT_ACTION_ORDER, ROLE_CONFIGS } from '../constants/roles';
 
@@ -81,6 +82,9 @@ interface UseWerewolfRoomResult {
   advanceToVoting: () => Promise<WerewolfActionResult>;
   castVote: (targetPlayerId: string) => Promise<WerewolfActionResult>;
   
+  // Reveal phase actions
+  setPlayerReadyForNight: () => Promise<WerewolfActionResult>;
+  
   // Computed
   isInRoom: boolean;
   wasKicked: boolean;
@@ -95,6 +99,7 @@ interface UseWerewolfRoomResult {
   
   // Phase-specific computed
   isWaiting: boolean;
+  isReveal: boolean;
   isNight: boolean;
   isDay: boolean;
   isVoting: boolean;
@@ -164,6 +169,7 @@ function transformRoomData(
     isHost: currentPlayer?.isHost ?? false,
     playerCount: playersArray.length,
     isWaiting: status === 'waiting',
+    isReveal: status === 'reveal',
     isNight: status === 'night',
     isDay: status === 'day',
     isVoting: status === 'voting',
@@ -174,6 +180,7 @@ function transformRoomData(
     myCurrentRole: privateData?.currentRole || null,
     nightActionResult: privateData?.nightActionResult || null,
     activeNightRole: data.meta.activeNightRole || null,
+    gameRoles: data.meta.gameRoles || [],
   };
 }
 
@@ -236,7 +243,7 @@ export function useWerewolfRoom({
   useEffect(() => {
     if (!roomId || !playerId || !roomData?.meta) return;
 
-    // Only subscribe if game is in progress
+    // Only subscribe if game is in progress (reveal phase and beyond)
     const status = roomData.meta.status;
     if (status === 'waiting') {
       setPrivatePlayerData(null);
@@ -432,6 +439,12 @@ export function useWerewolfRoom({
     return updateSelectedRolesAction(roomId, playerId, roles);
   }, [roomId, playerId]);
 
+  // Reveal phase actions
+  const setPlayerReadyForNight = useCallback(async (): Promise<WerewolfActionResult> => {
+    if (!playerId) return { success: false, error: 'Not authenticated' };
+    return setPlayerReadyForNightAction(roomId, playerId);
+  }, [roomId, playerId]);
+
   // Computed values
   const roomState = useMemo(
     () => transformRoomData(roomId, roomData, playerId, privatePlayerData),
@@ -514,6 +527,7 @@ export function useWerewolfRoom({
     forceAdvanceToDay,
     advanceToVoting,
     castVote,
+    setPlayerReadyForNight,
     isInRoom,
     wasKicked,
     isHost,
@@ -523,6 +537,7 @@ export function useWerewolfRoom({
     selectedRoles: roomData?.meta?.selectedRoles || [],
     updateSelectedRoles,
     isWaiting: roomState?.isWaiting ?? false,
+    isReveal: roomState?.isReveal ?? false,
     isNight: roomState?.isNight ?? false,
     isDay: roomState?.isDay ?? false,
     isVoting: roomState?.isVoting ?? false,

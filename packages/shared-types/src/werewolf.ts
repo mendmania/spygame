@@ -256,8 +256,11 @@ export const WEREWOLF_ROLES: Record<WerewolfRole, WerewolfRoleConfig> = {
 
 /**
  * Game phases
+ * 
+ * 'reveal' is the role reveal phase where players see their roles before night begins.
+ * All players must confirm they've seen their role before night actions start.
  */
-export type WerewolfPhase = 'waiting' | 'night' | 'day' | 'voting' | 'ended';
+export type WerewolfPhase = 'waiting' | 'reveal' | 'night' | 'day' | 'voting' | 'ended';
 
 /**
  * Extended room status for Werewolf (includes night/voting phases)
@@ -296,6 +299,7 @@ export interface WerewolfRoomMeta {
   settings: WerewolfGameSettings;
   selectedRoles?: WerewolfRole[];  // Host-selected roles for the game (locked when game starts)
   activeNightRole?: WerewolfRole | null;  // Currently acting role during night phase (null when night is complete)
+  gameRoles?: WerewolfRole[];  // All roles used in the current game (players + center), for public display
 }
 
 /**
@@ -413,6 +417,7 @@ export interface WerewolfGameResult {
   finalRoles: Record<string, WerewolfRole>;
   originalRoles: Record<string, WerewolfRole>;
   centerCards: WerewolfCenterCards;
+  nightActions?: WerewolfNightActionsMap; // Night action history for end-game display
 }
 
 /**
@@ -467,6 +472,7 @@ export interface WerewolfRoomState {
   isHost: boolean;
   playerCount: number;
   isWaiting: boolean;
+  isReveal: boolean;
   isNight: boolean;
   isDay: boolean;
   isVoting: boolean;
@@ -478,6 +484,8 @@ export interface WerewolfRoomState {
   myCurrentRole: WerewolfRole | null;
   nightActionResult: WerewolfNightActionResult | null;
   activeNightRole: WerewolfRole | null;  // Currently acting role during night
+  // Game composition (public info)
+  gameRoles: WerewolfRole[];  // All roles in the game for footer display
 }
 
 /**

@@ -7,9 +7,13 @@
  * - FRONT (default): Generic card back - SAME for all cards
  * - BACK (after tap): Shows role image
  * - Details button: Shows role name, description, team
+ * 
+ * REVEAL PHASE:
+ * - When initiallyFaceDown=true, card starts showing the back (hidden role)
+ * - User can tap to flip and reveal their role locally
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import type { WerewolfRole } from '@vbz/shared-types';
 import { getRoleEmoji, ROLE_CONFIGS, getRoleImagePath } from '../../constants/roles';
@@ -27,6 +31,10 @@ interface RoleCardProps {
   size?: 'small' | 'medium' | 'large';
   /** Optional click handler for additional interactions */
   onClick?: () => void;
+  /** If true, card starts face down (showing card back) and can be flipped to reveal */
+  initiallyFaceDown?: boolean;
+  /** Callback when card is flipped (for reveal phase tracking) */
+  onFlip?: (isFlipped: boolean) => void;
 }
 
 export function RoleCard({
@@ -36,9 +44,19 @@ export function RoleCard({
   showAction = false,
   size = 'medium',
   onClick,
+  initiallyFaceDown = false,
+  onFlip,
 }: RoleCardProps) {
-  const [isFlipped, setIsFlipped] = useState(false);
+  // For initiallyFaceDown mode, we start NOT flipped (showing card back)
+  // isFlipped=true means showing the role (front of the actual card)
+  const [isFlipped, setIsFlipped] = useState(!initiallyFaceDown);
   const [showDetails, setShowDetails] = useState(false);
+
+  // Reset flip state when initiallyFaceDown changes
+  useEffect(() => {
+    setIsFlipped(!initiallyFaceDown);
+    setShowDetails(false);
+  }, [initiallyFaceDown]);
 
   const config = ROLE_CONFIGS[role];
   const emoji = getRoleEmoji(role);
@@ -46,7 +64,9 @@ export function RoleCard({
 
   const handleCardClick = () => {
     if (isRevealed && !showDetails) {
-      setIsFlipped(!isFlipped);
+      const newFlipState = !isFlipped;
+      setIsFlipped(newFlipState);
+      onFlip?.(newFlipState);
     }
     onClick?.();
   };

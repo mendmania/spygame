@@ -5,6 +5,7 @@
  * 
  * Main game room page handling all phases:
  * - Waiting: Lobby with player list and start button
+ * - Reveal: Players see their role and confirm ready for night
  * - Night: Private role actions
  * - Day: Discussion phase with timer
  * - Voting: Vote selection with timer
@@ -13,6 +14,7 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useWerewolfRoom, useCurrentPlayerRole, useNightPhase } from '../../../hooks';
 import {
@@ -22,14 +24,32 @@ import {
   NightActionPanel,
   GameResult,
   RoleSelector,
+  GameRolesFooter,
   type WerewolfPlayerDisplay,
 } from '../../../components/game';
-import { getRoleEmoji } from '../../../constants/roles';
-import type { WerewolfNightActionResult } from '@vbz/shared-types';
+import { getRoleEmoji, ROLE_CONFIGS, getRoleImagePath } from '../../../constants/roles';
+import type { WerewolfNightActionResult, WerewolfRole } from '@vbz/shared-types';
 import styles from './page.module.css';
 
 interface RoomPageProps {
   params: { roomId: string };
+}
+
+// Helper component to render a role with image
+function RoleWithImage({ role, size = 20 }: { role: WerewolfRole; size?: number }) {
+  return (
+    <span className={styles.roleWithImage}>
+      <Image
+        src={getRoleImagePath(role)}
+        alt={ROLE_CONFIGS[role].name}
+        width={size}
+        height={size}
+        className={styles.inlineRoleImage}
+        unoptimized
+      />
+      <span>{ROLE_CONFIGS[role].name}</span>
+    </span>
+  );
 }
 
 // Helper component to show night action result summary during day phase
@@ -43,54 +63,106 @@ function NightActionResultSummary({
   const getPlayerName = (id: string) => 
     players.find(p => p.id === id)?.displayName || 'Unknown';
 
-  const items: string[] = [];
+  const items: React.ReactNode[] = [];
 
   if (result.skipped) {
-    items.push('You chose to skip your action');
+    items.push(<span key="skipped">You chose to skip your action</span>);
   }
   if (result.otherWerewolves && result.otherWerewolves.length > 0) {
-    items.push(`Other werewolf(s): ${result.otherWerewolves.map(getPlayerName).join(', ')}`);
+    items.push(
+      <span key="otherWerewolves" className={styles.discoveryItem}>
+        <RoleWithImage role="werewolf" /> Other werewolf(s): {result.otherWerewolves.map(getPlayerName).join(', ')}
+      </span>
+    );
   }
-  // Check isLoneWolf flag as primary, fallback to checking empty array
   if (result.isLoneWolf || (result.otherWerewolves && result.otherWerewolves.length === 0)) {
-    items.push('You are the only werewolf');
+    items.push(
+      <span key="loneWolf" className={styles.discoveryItem}>
+        <RoleWithImage role="werewolf" /> You are the only werewolf
+      </span>
+    );
   }
   if (result.centerCardSeen) {
-    items.push(`Center card: ${result.centerCardSeen}`);
+    items.push(
+      <span key="centerCard" className={styles.discoveryItem}>
+        Center card: <RoleWithImage role={result.centerCardSeen} />
+      </span>
+    );
   }
   if (result.playerRoleSeen) {
-    items.push(`${getPlayerName(result.playerRoleSeen.playerId)} is the ${result.playerRoleSeen.role}`);
+    items.push(
+      <span key="playerRole" className={styles.discoveryItem}>
+        {getPlayerName(result.playerRoleSeen.playerId)} is <RoleWithImage role={result.playerRoleSeen.role} />
+      </span>
+    );
   }
   if (result.centerCardsSeen) {
-    items.push(`Center cards: ${result.centerCardsSeen.map(c => `Card ${c.index + 1}: ${c.role}`).join(', ')}`);
+    items.push(
+      <span key="centerCards" className={styles.discoveryItem}>
+        Center cards: {result.centerCardsSeen.map((c, i) => (
+          <span key={c.index}>
+            {i > 0 && ', '}Card {c.index + 1}: <RoleWithImage role={c.role} />
+          </span>
+        ))}
+      </span>
+    );
   }
   if (result.newRole) {
     const robbedName = result.robbedPlayerId ? getPlayerName(result.robbedPlayerId) : null;
-    items.push(robbedName 
-      ? `You robbed ${robbedName} and became: ${result.newRole}`
-      : `Your new role: ${result.newRole}`);
+    items.push(
+      <span key="newRole" className={styles.discoveryItem}>
+        {robbedName 
+          ? <>You robbed {robbedName} and became <RoleWithImage role={result.newRole} /></>
+          : <>Your new role: <RoleWithImage role={result.newRole} /></>}
+      </span>
+    );
   }
   if (result.swappedPlayers) {
-    items.push(`Swapped ${getPlayerName(result.swappedPlayers[0])} ↔ ${getPlayerName(result.swappedPlayers[1])}`);
+    items.push(
+      <span key="swapped" className={styles.discoveryItem}>
+        Swapped {getPlayerName(result.swappedPlayers[0])} ↔ {getPlayerName(result.swappedPlayers[1])}
+      </span>
+    );
   }
   if (result.werewolvesSeen !== undefined) {
-    items.push(result.werewolvesSeen.length > 0 
-      ? `Werewolf(s): ${result.werewolvesSeen.map(getPlayerName).join(', ')}`
-      : 'There are no werewolves among the players!');
+    items.push(
+      <span key="werewolvesSeen" className={styles.discoveryItem}>
+        <RoleWithImage role="werewolf" /> {result.werewolvesSeen.length > 0 
+          ? `Werewolf(s): ${result.werewolvesSeen.map(getPlayerName).join(', ')}`
+          : 'There are no werewolves among the players!'}
+      </span>
+    );
   }
   if (result.otherMason !== undefined) {
-    items.push(result.otherMason 
-      ? `Fellow Mason: ${getPlayerName(result.otherMason)}`
-      : 'You are the only Mason');
+    items.push(
+      <span key="mason" className={styles.discoveryItem}>
+        <RoleWithImage role="mason" /> {result.otherMason 
+          ? `Fellow Mason: ${getPlayerName(result.otherMason)}`
+          : 'You are the only Mason'}
+      </span>
+    );
   }
   if (result.centerCardSwapped !== undefined) {
-    items.push(`Drunkenly swapped with Center Card ${result.centerCardSwapped + 1}`);
+    items.push(
+      <span key="drunk" className={styles.discoveryItem}>
+        <RoleWithImage role="drunk" /> Swapped with Center Card {result.centerCardSwapped + 1}
+      </span>
+    );
   }
   if (result.finalRole) {
-    items.push(`Your final role: ${result.finalRole}`);
+    items.push(
+      <span key="finalRole" className={styles.discoveryItem}>
+        Your final role: <RoleWithImage role={result.finalRole} />
+      </span>
+    );
   }
   if (result.witchPeekedCard) {
-    items.push(`Peeked at Center Card ${result.witchPeekedCard.index + 1}: ${result.witchPeekedCard.role}${result.witchSwappedWith ? ` → swapped with ${getPlayerName(result.witchSwappedWith)}` : ''}`);
+    items.push(
+      <span key="witch" className={styles.discoveryItem}>
+        Peeked at Center Card {result.witchPeekedCard.index + 1}: <RoleWithImage role={result.witchPeekedCard.role} />
+        {result.witchSwappedWith && ` → swapped with ${getPlayerName(result.witchSwappedWith)}`}
+      </span>
+    );
   }
 
   if (items.length === 0) {
@@ -133,7 +205,9 @@ export default function RoomPage({ params }: RoomPageProps) {
     forceAdvanceToDay,
     advanceToVoting,
     castVote,
+    setPlayerReadyForNight,
     isWaiting,
+    isReveal,
     isNight,
     isDay,
     isVoting,
@@ -175,6 +249,8 @@ export default function RoomPage({ params }: RoomPageProps) {
   const [isStarting, setIsStarting] = useState(false);
   const [isAdvancing, setIsAdvancing] = useState(false);
   const [votedFor, setVotedFor] = useState<string | null>(null);
+  const [hasSeenRole, setHasSeenRole] = useState(false);
+  const [isSettingReady, setIsSettingReady] = useState(false);
 
   // Reset local state when game resets to waiting phase
   useEffect(() => {
@@ -182,6 +258,8 @@ export default function RoomPage({ params }: RoomPageProps) {
       setVotedFor(null);
       setIsStarting(false);
       setIsAdvancing(false);
+      setHasSeenRole(false);
+      setIsSettingReady(false);
     }
   }, [isWaiting]);
 
@@ -195,6 +273,7 @@ export default function RoomPage({ params }: RoomPageProps) {
       hasActed: p.hasActed,
       vote: p.vote,
       role: isEnded ? roomState.result?.finalRoles[p.id] : undefined,
+      isReady: p.isReady,
     }));
   }, [roomState?.players, isEnded, roomState?.result]);
 
@@ -277,6 +356,22 @@ export default function RoomPage({ params }: RoomPageProps) {
     await kickPlayer(targetId);
   };
 
+  const handleReadyForNight = async () => {
+    if (isSettingReady) return;
+    setIsSettingReady(true);
+    const result = await setPlayerReadyForNight();
+    if (!result.success) {
+      setIsSettingReady(false);
+    }
+    // Don't reset on success - player stays ready
+  };
+
+  const handleRoleFlipped = (isFlipped: boolean) => {
+    if (isFlipped) {
+      setHasSeenRole(true);
+    }
+  };
+
   // Loading state
   if (loading) {
     return (
@@ -343,6 +438,7 @@ export default function RoomPage({ params }: RoomPageProps) {
 
   // Get phase display info
   const getPhaseInfo = () => {
+    if (isReveal) return { emoji: '🎭', name: 'Role Reveal' };
     if (isNight) return { emoji: '🌙', name: 'Night Phase' };
     if (isDay) return { emoji: '☀️', name: 'Day Phase - Discussion' };
     if (isVoting) return { emoji: '🗳️', name: 'Voting Phase' };
@@ -441,6 +537,61 @@ export default function RoomPage({ params }: RoomPageProps) {
           </div>
         )}
 
+        {/* REVEAL PHASE - Players see their roles before night */}
+        {isReveal && (
+          <div className={styles.gameLayout}>
+            <div className={styles.leftPanel}>
+              <PlayersList
+                players={players}
+                currentPlayerId={playerId}
+                showReady={true}
+              />
+            </div>
+
+            <div className={styles.centerPanel}>
+              <div className={styles.phaseIndicator}>
+                <span className={styles.phaseEmoji}>🎭</span>
+                <span className={styles.phaseName}>Role Reveal</span>
+              </div>
+
+              <div className={styles.revealContainer}>
+                {roomState?.myOriginalRole && (
+                  <div className={styles.revealCardWrapper}>
+                    <RoleCard
+                      role={roomState.myOriginalRole}
+                      showAction={true}
+                      size="large"
+                      initiallyFaceDown={true}
+                      onFlip={handleRoleFlipped}
+                    />
+                  </div>
+                )}
+
+                {/* Ready for Night button */}
+                <div className={styles.readySection}>
+                  {roomState?.currentPlayer?.isReady ? (
+                    <div className={styles.readyConfirmed}>
+                      <span className={styles.readyCheck}>✓</span>
+                      <span>Ready for Night</span>
+                      <p className={styles.readyWaiting}>Waiting for other players...</p>
+                    </div>
+                  ) : (
+                    <button
+                      className={styles.readyButton}
+                      onClick={handleReadyForNight}
+                      disabled={isSettingReady || !hasSeenRole}
+                    >
+                      {isSettingReady ? 'Setting ready...' : 
+                       !hasSeenRole ? 'Flip your card first' :
+                       "I've Seen My Role - Ready for Night"}
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* NIGHT PHASE */}
         {isNight && (
           <div className={styles.gameLayout}>
@@ -488,23 +639,7 @@ export default function RoomPage({ params }: RoomPageProps) {
                 <span className={styles.phaseName}>Night Phase</span>
               </div>
 
-              {roomState?.myOriginalRole && (
-                <div className={styles.roleReveal}>
-                  <span className={styles.roleLabel}>Your Role</span>
-                  <RoleCard
-                    role={roomState.myOriginalRole}
-                    showAction={true}
-                    size="medium"
-                  />
-                </div>
-              )}
-
               <div className={styles.nightContainer}>
-                <h2 className={styles.nightTitle}>Close your eyes...</h2>
-                <p className={styles.nightSubtitle}>
-                  Each role takes their action in secret
-                </p>
-
                 {roomState?.myOriginalRole && (
                   <NightActionPanel
                     role={roomState.myOriginalRole}
@@ -567,24 +702,8 @@ export default function RoomPage({ params }: RoomPageProps) {
                 <span className={styles.phaseName}>Day Phase</span>
               </div>
 
-              {roomState?.myCurrentRole && (
-                <div className={styles.roleReveal}>
-                  <span className={styles.roleLabel}>
-                    Your Current Role {roleInfo.wasSwapped && '(Swapped!)'}
-                  </span>
-                  <RoleCard
-                    role={roomState.myCurrentRole}
-                    isOriginal={!roleInfo.wasSwapped}
-                    size="medium"
-                  />
-                </div>
-              )}
-
               <div className={styles.dayContainer}>
                 <h2 className={styles.dayTitle}>Discussion Time!</h2>
-                <p className={styles.daySubtitle}>
-                  Talk to each other and figure out who the werewolves are
-                </p>
 
                 {/* Show night action result so player remembers what they learned */}
                 {roomState?.nightActionResult && Object.keys(roomState.nightActionResult).length > 0 && (
@@ -701,6 +820,11 @@ export default function RoomPage({ params }: RoomPageProps) {
           </div>
         )}
       </main>
+
+      {/* Game Roles Footer - Show during reveal, night, day, voting phases */}
+      {(isReveal || isNight || isDay || isVoting) && roomState?.gameRoles && roomState.gameRoles.length > 0 && (
+        <GameRolesFooter gameRoles={roomState.gameRoles} />
+      )}
     </div>
   );
 }

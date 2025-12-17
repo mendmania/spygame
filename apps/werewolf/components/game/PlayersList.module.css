@@ -152,3 +152,29 @@
   background: rgba(34, 197, 94, 0.3);
   border-color: rgba(34, 197, 94, 0.6);
 }
+
+/* Ready status for reveal phase */
+.readyCounter {
+  margin-left: auto;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: rgba(34, 197, 94, 0.8);
+  background: rgba(34, 197, 94, 0.1);
+  padding: 0.125rem 0.5rem;
+  border-radius: 0.25rem;
+}
+
+.readyStatus {
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.4);
+  transition: all 0.2s ease;
+}
+
+.readyStatus.isReady {
+  color: #22c55e;
+}
+
+.player.ready {
+  background: rgba(34, 197, 94, 0.08);
+  border: 1px solid rgba(34, 197, 94, 0.2);
+}

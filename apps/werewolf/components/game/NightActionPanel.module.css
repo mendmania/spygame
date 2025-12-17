@@ -2,9 +2,72 @@
   background: rgba(25, 28, 41, 0.95);
   border: 1px solid rgba(139, 0, 0, 0.4);
   border-radius: 1rem;
-  padding: 1.5rem;
-  max-width: 400px;
+  padding: 1.25rem;
+  max-width: 420px;
   width: 100%;
+}
+
+/* Role Header with Image */
+.roleHeader {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding-bottom: 1rem;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.roleImageContainer {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 2px solid rgba(139, 0, 0, 0.5);
+  flex-shrink: 0;
+  box-shadow: 0 0 12px rgba(139, 0, 0, 0.3);
+}
+
+.roleHeaderImage {
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.roleHeaderInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.roleHeaderTitle {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: #fff;
+  margin: 0 0 0.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.roleHeaderEmoji {
+  font-size: 1.25rem;
+}
+
+.roleHeaderAction {
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.6);
+  margin: 0;
+  line-height: 1.4;
+}
+
+/* Completed section */
+.completedSection {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+/* Action section */
+.actionSection {
+  /* Container for role-specific action UI */
 }
 
 .header {
@@ -38,8 +101,11 @@
   font-size: 1rem;
   font-weight: 600;
   color: #10b981;
-  margin: 0 0 1rem;
+  margin: 0 0 0.75rem;
   text-align: center;
+  padding: 0.5rem;
+  background: rgba(16, 185, 129, 0.1);
+  border-radius: 0.5rem;
 }
 
 .actionContent {
@@ -299,7 +365,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.75rem;
+  gap: 1rem;
   padding: 1.5rem 1rem;
   text-align: center;
 }
@@ -311,14 +377,57 @@
   margin: 0;
 }
 
+.activeRoleInfo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+}
+
 .currentlyActing {
-  font-size: 0.9rem;
-  color: #fbbf24;
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.5);
   margin: 0;
-  padding: 0.5rem 1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05rem;
+}
+
+.activeRoleCard {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.5rem;
   background: rgba(251, 191, 36, 0.1);
   border: 1px solid rgba(251, 191, 36, 0.3);
-  border-radius: 0.5rem;
+  border-radius: 0.75rem;
+}
+
+.activeRoleImage {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid rgba(251, 191, 36, 0.5);
+}
+
+.activeRoleDetails {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+}
+
+.activeRoleName {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #fbbf24;
+}
+
+.activeRoleAction {
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.6);
+  text-align: left;
 }
 
 .waitingMessage {

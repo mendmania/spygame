@@ -255,7 +255,14 @@ export function RoleSelector({
                 className={`${styles.deckCard} ${styles[ROLE_CONFIGS[role].team]}`}
                 title={ROLE_CONFIGS[role].name}
               >
-                {getRoleEmoji(role)}
+                <Image
+                  src={getRoleImagePath(role)}
+                  alt={ROLE_CONFIGS[role].name}
+                  width={32}
+                  height={32}
+                  className={styles.deckCardImage}
+                  unoptimized
+                />
               </div>
             ))}
           </div>
