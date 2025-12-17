@@ -166,7 +166,7 @@ export default function DashboardPage() {
       let successCount = 0;
       let errorCount = 0;
 
-      for (const key of selectedRooms) {
+      for (const key of Array.from(selectedRooms)) {
         const [game, roomId] = key.split('-') as [GameType, string];
         try {
           const result = await deleteRoom(token, game, roomId);
