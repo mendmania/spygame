@@ -55,8 +55,16 @@ export default function RootLayout({
             </header>
             <main className="flex-1 flex flex-col">{children}</main>
             <footer className="border-t border-gray-800 px-6 py-6">
-              <div className="max-w-4xl mx-auto text-center text-gray-500 text-sm">
-                Part of Virtual Board Zone
+              <div className="max-w-4xl mx-auto text-center text-gray-500 text-sm space-y-2">
+                <p>Part of Virtual Board Zone</p>
+                <a
+                  href="https://buymeacoffee.com/mendmania"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 text-yellow-500 hover:text-yellow-400 transition-colors"
+                >
+                  ☕ Buy me a coffee
+                </a>
               </div>
             </footer>
           </div>
