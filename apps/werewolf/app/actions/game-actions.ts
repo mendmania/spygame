@@ -20,6 +20,7 @@
  */
 
 import { getAdminDatabase } from '@/lib/firebase-admin';
+import { updateAdminRoomIndex, updateAdminRoomStatus, updateAdminPlayerCount, removeFromAdminIndex } from './admin-index-actions';
 import {
   ROOMS_BASE,
   DEFAULT_DISCUSSION_TIME,
@@ -261,6 +262,9 @@ export async function startGame(
       result: null,     // Clear previous result
       ...playerUpdates,
     });
+
+    // Update admin index (non-blocking)
+    updateAdminRoomStatus(roomId, 'reveal').catch(console.error);
 
     return { success: true };
   } catch (error) {
@@ -1337,6 +1341,9 @@ async function endGameAndDetermineWinner(roomId: string): Promise<void> {
     'state/currentPhase': 'ended',
     result,
   });
+
+  // Update admin index (non-blocking)
+  updateAdminRoomStatus(roomId, 'finished').catch(console.error);
 }
 
 /**
@@ -1384,6 +1391,9 @@ export async function endGame(
       'state/currentPhase': 'ended',
       result,
     });
+
+    // Update admin index (non-blocking)
+    updateAdminRoomStatus(roomId, 'finished').catch(console.error);
 
     return { success: true };
   } catch (error) {
@@ -1437,6 +1447,9 @@ export async function resetGame(
       result: null,
       ...playerUpdates,
     });
+
+    // Update admin index (non-blocking)
+    updateAdminRoomStatus(roomId, 'waiting').catch(console.error);
 
     return { success: true };
   } catch (error) {
@@ -1615,6 +1628,126 @@ export async function updateSelectedRoles(
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Failed to update roles',
+    };
+  }
+}
+
+/**
+ * Create a new room (server action)
+ * 
+ * Creates the room and updates the admin index
+ */
+export async function createRoomServer(
+  roomId: string,
+  playerId: string,
+  displayName: string
+): Promise<WerewolfActionResult> {
+  try {
+    const db = getAdminDatabase();
+    const roomRef = db.ref(`${ROOMS_BASE}/${roomId}`);
+
+    // Check if room already exists
+    const snapshot = await roomRef.once('value');
+    if (snapshot.exists()) {
+      return { success: false, error: 'Room already exists' };
+    }
+
+    const now = Date.now();
+
+    // Create room data
+    const roomData = {
+      meta: {
+        status: 'waiting',
+        createdAt: now,
+        createdBy: playerId,
+      },
+      players: {
+        [playerId]: {
+          displayName,
+          isHost: true,
+          joinedAt: now,
+          hasActed: false,
+          vote: null,
+          isReady: false,
+        },
+      },
+    };
+
+    await roomRef.set(roomData);
+
+    // Update admin index (non-blocking)
+    updateAdminRoomIndex(roomId, {
+      status: 'waiting',
+      playerCount: 1,
+      createdAt: now,
+      lastActiveAt: now,
+      hostName: displayName,
+      hostId: playerId,
+    }).catch(console.error);
+
+    return { success: true };
+  } catch (error) {
+    console.error('createRoomServer error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to create room',
+    };
+  }
+}
+
+/**
+ * Join room and update admin index (server action)
+ */
+export async function joinRoomServer(
+  roomId: string,
+  playerId: string,
+  displayName: string
+): Promise<WerewolfActionResult & { isReconnect?: boolean }> {
+  try {
+    const db = getAdminDatabase();
+    const roomRef = db.ref(`${ROOMS_BASE}/${roomId}`);
+
+    const snapshot = await roomRef.once('value');
+    const currentData = snapshot.val();
+
+    if (!currentData) {
+      return { success: false, error: 'Room not found' };
+    }
+
+    const players = currentData.players || {};
+    const existingPlayer = players[playerId];
+
+    // Reconnect scenario
+    if (existingPlayer) {
+      await roomRef.child(`players/${playerId}/displayName`).set(displayName);
+      return { success: true, isReconnect: true };
+    }
+
+    // New player - check if joining is allowed
+    if (currentData.meta?.status !== 'waiting') {
+      return { success: false, error: 'Cannot join - game in progress' };
+    }
+
+    // Add new player
+    await roomRef.child(`players/${playerId}`).set({
+      displayName,
+      isHost: false,
+      joinedAt: Date.now(),
+      hasActed: false,
+      vote: null,
+      isReady: false,
+    });
+
+    // Update admin index with new player count (non-blocking)
+    const newCount = Object.keys(players).length + 1;
+    updateAdminPlayerCount(roomId, newCount).catch(console.error);
+
+    return { success: true, isReconnect: false };
+  } catch (error) {
+    console.error('joinRoomServer error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to join room',
     };
   }
 }

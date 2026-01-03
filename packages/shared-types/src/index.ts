@@ -17,7 +17,7 @@ export type RoomStatus = 'waiting' | 'playing' | 'finished';
 
 // Base player types
 export interface BasePlayer {
-  odurplayerId: string;
+  playerId: string;
   displayName: string;
   isHost: boolean;
   joinedAt: number;

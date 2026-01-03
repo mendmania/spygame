@@ -11,10 +11,10 @@
   },
   "dependencies": {
     "@vbz/firebase": "workspace:*",
+    "@vbz/firebase-admin": "workspace:*",
     "@vbz/game-core": "workspace:*",
     "@vbz/shared-types": "workspace:*",
     "@vbz/ui": "workspace:*",
-    "firebase-admin": "^13.6.0",
     "next": "14.2.35",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"

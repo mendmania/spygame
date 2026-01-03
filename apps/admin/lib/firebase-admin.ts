@@ -3,57 +3,27 @@
  * 
  * This module is server-only and provides utilities for Firebase Admin SDK.
  * It does NOT use 'use server' directive - it's imported by server action files.
+ * 
+ * Core functionality is imported from @vbz/firebase-admin package.
+ * Admin-specific utilities (verifyAdminUser) are defined here.
  */
 
-import { initializeApp, getApps, cert, App } from 'firebase-admin/app';
-import { getAuth, Auth } from 'firebase-admin/auth';
-import { getDatabase, Database } from 'firebase-admin/database';
+import {
+  getAdminAuth,
+  getAdminDatabase,
+  getAdminDbRef as getDbRef,
+  type Database,
+} from '@vbz/firebase-admin';
 
-let adminApp: App | null = null;
-let adminAuth: Auth | null = null;
-let adminDb: Database | null = null;
+// Re-export core functions for backward compatibility
+export { getAdminApp, getAdminAuth, getAdminDatabase } from '@vbz/firebase-admin';
 
-function getAdminApp(): App {
-  if (adminApp) {
-    return adminApp;
-  }
-
-  const existingApps = getApps();
-  if (existingApps.length > 0) {
-    adminApp = existingApps[0];
-    return adminApp;
-  }
-
-  const serviceAccountKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
-  if (!serviceAccountKey) {
-    throw new Error('FIREBASE_SERVICE_ACCOUNT_KEY is not set');
-  }
-
-  let serviceAccount;
-  try {
-    serviceAccount = JSON.parse(serviceAccountKey);
-  } catch {
-    throw new Error('Failed to parse FIREBASE_SERVICE_ACCOUNT_KEY as JSON');
-  }
-
-  adminApp = initializeApp({
-    credential: cert(serviceAccount),
-    databaseURL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL,
-  });
-
-  return adminApp;
-}
-
-function getAdminAuth(): Auth {
-  if (adminAuth) return adminAuth;
-  adminAuth = getAuth(getAdminApp());
-  return adminAuth;
-}
-
-function getAdminDatabase(): Database {
-  if (adminDb) return adminDb;
-  adminDb = getDatabase(getAdminApp());
-  return adminDb;
+/**
+ * Get a database reference for admin operations
+ * Async wrapper for backward compatibility with existing code
+ */
+export async function getAdminDbRef(path: string) {
+  return getDbRef(path);
 }
 
 /**
@@ -95,11 +65,4 @@ export async function verifyAdminUser(idToken: string): Promise<{
       error: error instanceof Error ? error.message : 'Unknown error',
     };
   }
-}
-
-/**
- * Get a database reference for admin operations
- */
-export async function getAdminDbRef(path: string) {
-  return getAdminDatabase().ref(path);
 }
