@@ -9,6 +9,11 @@ import type {
   AdminRoomDetail,
   AdminPlayerInfo,
   GameType,
+  GameStats,
+  DailyStats,
+  WeeklyStats,
+  ExtendedAnalytics,
+  ChartDataPoint,
 } from '@/types';
 
 // Verify admin and return result or throw
@@ -20,6 +25,40 @@ async function requireAdmin(idToken: string): Promise<{ uid: string; email: stri
   return { uid: result.uid!, email: result.email };
 }
 
+// Helper to create empty GameStats
+function emptyGameStats(): GameStats {
+  return { spyfall: 0, werewolf: 0, codenames: 0, total: 0 };
+}
+
+// Helper to get date string in YYYY-MM-DD format
+function getDateString(date: Date): string {
+  return date.toISOString().split('T')[0];
+}
+
+// Helper to get Monday of a week
+function getMondayOfWeek(date: Date): Date {
+  const d = new Date(date);
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+  d.setDate(diff);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+// Helper to get week identifier (YYYY-Www)
+function getWeekId(date: Date): string {
+  const monday = getMondayOfWeek(date);
+  const startOfYear = new Date(monday.getFullYear(), 0, 1);
+  const days = Math.floor((monday.getTime() - startOfYear.getTime()) / (24 * 60 * 60 * 1000));
+  const weekNum = Math.ceil((days + startOfYear.getDay() + 1) / 7);
+  return `${monday.getFullYear()}-W${weekNum.toString().padStart(2, '0')}`;
+}
+
+// Helper to check if status is active
+function isActiveStatus(status: string): boolean {
+  return ['waiting', 'playing', 'night', 'day', 'voting'].includes(status);
+}
+
 // Get dashboard data (analytics + room list)
 export async function getDashboardData(idToken: string): Promise<AdminDashboardData> {
   await requireAdmin(idToken);
@@ -28,77 +67,44 @@ export async function getDashboardData(idToken: string): Promise<AdminDashboardD
 
   // Get current date info for time-based stats
   const now = new Date();
-  const today = now.toISOString().split('T')[0];
+  const today = getDateString(now);
   const currentMonth = today.substring(0, 7); // YYYY-MM
-  
-  // Get Monday of current week
-  const dayOfWeek = now.getDay();
-  const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-  const monday = new Date(now);
-  monday.setDate(now.getDate() + mondayOffset);
-  const weekStart = monday.toISOString().split('T')[0];
+  const monday = getMondayOfWeek(now);
+  const weekStart = getDateString(monday);
 
-  // Get analytics
-  const analyticsSnapshot = await db.child('analytics').once('value');
-  let analytics: AdminAnalytics = analyticsSnapshot.val() || {
-    activeRooms: 0,
-    activePlayers: 0,
-    roomsCreatedToday: 0,
-    roomsCreatedThisWeek: 0,
-    roomsCreatedThisMonth: 0,
-    lastResetDate: today,
-    weekStartDate: weekStart,
-    monthStartDate: currentMonth,
-  };
+  // Calculate time boundaries
+  const todayStart = new Date(today).getTime();
+  const weekStartTime = monday.getTime();
+  const monthStartTime = new Date(currentMonth + '-01').getTime();
 
-  // Check if we need to reset counters
-  if (analytics.lastResetDate !== today) {
-    analytics.roomsCreatedToday = 0;
-    analytics.lastResetDate = today;
-  }
-  if (analytics.weekStartDate !== weekStart) {
-    analytics.roomsCreatedThisWeek = 0;
-    analytics.weekStartDate = weekStart;
-  }
-  if (analytics.monthStartDate !== currentMonth) {
-    analytics.roomsCreatedThisMonth = 0;
-    analytics.monthStartDate = currentMonth;
+  // Get stored daily stats for the last 7 days
+  const last7DaysData: DailyStats[] = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(now);
+    d.setDate(d.getDate() - i);
+    const dateStr = getDateString(d);
+    last7DaysData.push({
+      date: dateStr,
+      gamesCreated: emptyGameStats(),
+      peakActiveRooms: 0,
+      peakActivePlayers: 0,
+      totalPlayersJoined: 0,
+    });
   }
 
   const rooms: AdminDashboardData['rooms'] = [];
 
-  // First, check the admin index for indexed rooms
-  const roomsSnapshot = await db.child('rooms').once('value');
-  const indexedRoomsData = roomsSnapshot.val() || {};
-  const indexedRoomIds = new Set<string>();
+  // Tracking variables for accurate counting
+  let activeRooms = 0;
+  let activePlayers = 0;
+  const todayByGame = emptyGameStats();
+  const weekByGame = emptyGameStats();
+  const monthByGame = emptyGameStats();
 
-  for (const game of Object.keys(indexedRoomsData) as GameType[]) {
-    const gameRooms = indexedRoomsData[game] || {};
-    for (const roomId of Object.keys(gameRooms)) {
-      indexedRoomIds.add(`${game}/${roomId}`);
-      rooms.push({
-        game,
-        roomId,
-        summary: gameRooms[roomId] as AdminRoomSummary,
-      });
-    }
-  }
-
-  // Also scan actual spyfall rooms that might not be indexed yet
+  // Process Spyfall rooms - FIX: Use meta.status not state.status
   const spyfallRoomsRef = await getAdminDbRef('games/spyfall/rooms');
   const spyfallRoomsSnapshot = await spyfallRoomsRef.once('value');
   const spyfallRoomsData = spyfallRoomsSnapshot.val() || {};
-
-  let activeRooms = 0;
-  let activePlayers = 0;
-  let roomsToday = 0;
-  let roomsThisWeek = 0;
-  let roomsThisMonth = 0;
-
-  // Helper to check creation time
-  const todayStart = new Date(today).getTime();
-  const weekStartTime = new Date(weekStart).getTime();
-  const monthStartTime = new Date(currentMonth + '-01').getTime();
 
   for (const roomId of Object.keys(spyfallRoomsData)) {
     const room = spyfallRoomsData[roomId];
@@ -106,43 +112,59 @@ export async function getDashboardData(idToken: string): Promise<AdminDashboardD
 
     const players = room.players || {};
     const playerCount = Object.keys(players).length;
-    const status = room.state?.status || 'waiting';
-    const isActive = status === 'waiting' || status === 'playing';
-    const createdAt = room.state?.createdAt || Date.now();
+    
+    // FIX: Spyfall uses meta.status, not state.status
+    const status = room.meta?.status || 'waiting';
+    const isActive = isActiveStatus(status);
+    const createdAt = room.meta?.createdAt || Date.now();
 
     if (isActive) {
       activeRooms++;
       activePlayers += playerCount;
     }
 
-    // Count rooms by time period
-    if (createdAt >= todayStart) roomsToday++;
-    if (createdAt >= weekStartTime) roomsThisWeek++;
-    if (createdAt >= monthStartTime) roomsThisMonth++;
-
-    // Only add if not already indexed
-    if (!indexedRoomIds.has(`spyfall/${roomId}`)) {
-      // Get host info
-      const hostId = room.state?.hostId || Object.keys(players)[0];
-      const hostPlayer = players[hostId];
-      const hostName = hostPlayer?.displayName || 'Unknown';
-
-      rooms.push({
-        game: 'spyfall',
-        roomId,
-        summary: {
-          status: status as AdminRoomSummary['status'],
-          playerCount,
-          createdAt,
-          lastActiveAt: room.state?.lastActiveAt || createdAt,
-          hostName,
-          hostId: hostId || '',
-        },
-      });
+    // Count rooms by time period with per-game breakdown
+    if (createdAt >= todayStart) {
+      todayByGame.spyfall++;
+      todayByGame.total++;
     }
+    if (createdAt >= weekStartTime) {
+      weekByGame.spyfall++;
+      weekByGame.total++;
+    }
+    if (createdAt >= monthStartTime) {
+      monthByGame.spyfall++;
+      monthByGame.total++;
+    }
+
+    // Update daily stats for charts
+    const roomDate = getDateString(new Date(createdAt));
+    const dayStats = last7DaysData.find(d => d.date === roomDate);
+    if (dayStats) {
+      dayStats.gamesCreated.spyfall++;
+      dayStats.gamesCreated.total++;
+    }
+
+    // Get host info
+    const hostId = room.meta?.createdBy || Object.keys(players)[0] || '';
+    const hostPlayer = players[hostId];
+    const hostName = hostPlayer?.displayName || 'Unknown';
+
+    rooms.push({
+      game: 'spyfall',
+      roomId,
+      summary: {
+        status: status as AdminRoomSummary['status'],
+        playerCount,
+        createdAt,
+        lastActiveAt: room.meta?.lastActiveAt || createdAt,
+        hostName,
+        hostId,
+      },
+    });
   }
 
-  // Scan werewolf rooms
+  // Process Werewolf rooms - FIX: Properly handle werewolf status
   const werewolfRoomsRef = await getAdminDbRef('games/werewolf/rooms');
   const werewolfRoomsSnapshot = await werewolfRoomsRef.once('value');
   const werewolfRoomsData = werewolfRoomsSnapshot.val() || {};
@@ -153,9 +175,9 @@ export async function getDashboardData(idToken: string): Promise<AdminDashboardD
 
     const players = room.players || {};
     const playerCount = Object.keys(players).length;
-    // Werewolf uses meta.status instead of state.status
+    // Werewolf uses meta.status with different values: waiting, night, day, voting, ended
     const status = room.meta?.status || 'waiting';
-    const isActive = ['waiting', 'night', 'day', 'voting'].includes(status);
+    const isActive = isActiveStatus(status);
     const createdAt = room.meta?.createdAt || Date.now();
 
     if (isActive) {
@@ -163,53 +185,141 @@ export async function getDashboardData(idToken: string): Promise<AdminDashboardD
       activePlayers += playerCount;
     }
 
-    // Count rooms by time period
-    if (createdAt >= todayStart) roomsToday++;
-    if (createdAt >= weekStartTime) roomsThisWeek++;
-    if (createdAt >= monthStartTime) roomsThisMonth++;
+    // Count rooms by time period with per-game breakdown
+    if (createdAt >= todayStart) {
+      todayByGame.werewolf++;
+      todayByGame.total++;
+    }
+    if (createdAt >= weekStartTime) {
+      weekByGame.werewolf++;
+      weekByGame.total++;
+    }
+    if (createdAt >= monthStartTime) {
+      monthByGame.werewolf++;
+      monthByGame.total++;
+    }
 
-    // Only add if not already indexed
-    if (!indexedRoomIds.has(`werewolf/${roomId}`)) {
-      // Get host info - find player with isHost: true
-      let hostId = '';
-      let hostName = 'Unknown';
-      for (const [pid, player] of Object.entries(players) as [string, any][]) {
-        if (player?.isHost) {
-          hostId = pid;
-          hostName = player.name || player.displayName || 'Unknown';
-          break;
-        }
+    // Update daily stats for charts
+    const roomDate = getDateString(new Date(createdAt));
+    const dayStats = last7DaysData.find(d => d.date === roomDate);
+    if (dayStats) {
+      dayStats.gamesCreated.werewolf++;
+      dayStats.gamesCreated.total++;
+    }
+
+    // Get host info - find player with isHost: true
+    let hostId = '';
+    let hostName = 'Unknown';
+    for (const [pid, player] of Object.entries(players) as [string, Record<string, unknown>][]) {
+      if (player?.isHost) {
+        hostId = pid;
+        hostName = (player.name as string) || (player.displayName as string) || 'Unknown';
+        break;
       }
+    }
 
-      rooms.push({
-        game: 'werewolf',
-        roomId,
-        summary: {
-          status: status as AdminRoomSummary['status'],
-          playerCount,
-          createdAt,
-          lastActiveAt: room.meta?.lastActiveAt || createdAt,
-          hostName,
-          hostId,
-        },
-      });
+    rooms.push({
+      game: 'werewolf',
+      roomId,
+      summary: {
+        status: status as AdminRoomSummary['status'],
+        playerCount,
+        createdAt,
+        lastActiveAt: room.meta?.lastActiveAt || createdAt,
+        hostName,
+        hostId,
+      },
+    });
+  }
+
+  // Build analytics object with accurate counts
+  const analytics: AdminAnalytics = {
+    activeRooms,
+    activePlayers,
+    roomsCreatedToday: todayByGame.total,
+    roomsCreatedThisWeek: weekByGame.total,
+    roomsCreatedThisMonth: monthByGame.total,
+    lastResetDate: today,
+    weekStartDate: weekStart,
+    monthStartDate: currentMonth,
+    todayByGame,
+    weekByGame,
+    monthByGame,
+    lastRecalculated: Date.now(),
+  };
+
+  // Find most active day in last 7 days
+  let mostActiveDay: ExtendedAnalytics['mostActiveDay'] = null;
+  for (const day of last7DaysData) {
+    if (!mostActiveDay || day.gamesCreated.total > mostActiveDay.gamesCreated) {
+      mostActiveDay = {
+        date: day.date,
+        gamesCreated: day.gamesCreated.total,
+      };
     }
   }
 
-  // Update analytics with actual counts
-  analytics = {
+  // Build weekly stats for last 4 weeks
+  const last4Weeks: WeeklyStats[] = [];
+  for (let w = 3; w >= 0; w--) {
+    const weekDate = new Date(now);
+    weekDate.setDate(weekDate.getDate() - (w * 7));
+    const weekMonday = getMondayOfWeek(weekDate);
+    const weekSunday = new Date(weekMonday);
+    weekSunday.setDate(weekMonday.getDate() + 6);
+
+    const weekStats: WeeklyStats = {
+      weekStart: getDateString(weekMonday),
+      weekEnd: getDateString(weekSunday),
+      gamesCreated: emptyGameStats(),
+      dailyBreakdown: {},
+      mostActiveDay: getDateString(weekMonday),
+      averageGamesPerDay: 0,
+    };
+
+    // Count games for this week from room data
+    const weekStartMs = weekMonday.getTime();
+    const weekEndMs = weekSunday.getTime() + 24 * 60 * 60 * 1000;
+
+    for (const room of rooms) {
+      if (room.summary.createdAt >= weekStartMs && room.summary.createdAt < weekEndMs) {
+        weekStats.gamesCreated[room.game]++;
+        weekStats.gamesCreated.total++;
+
+        const dayKey = getDateString(new Date(room.summary.createdAt));
+        if (!weekStats.dailyBreakdown[dayKey]) {
+          weekStats.dailyBreakdown[dayKey] = emptyGameStats();
+        }
+        weekStats.dailyBreakdown[dayKey][room.game]++;
+        weekStats.dailyBreakdown[dayKey].total++;
+      }
+    }
+
+    // Find most active day in week
+    let maxGames = 0;
+    for (const [day, stats] of Object.entries(weekStats.dailyBreakdown)) {
+      if (stats.total > maxGames) {
+        maxGames = stats.total;
+        weekStats.mostActiveDay = day;
+      }
+    }
+
+    weekStats.averageGamesPerDay = weekStats.gamesCreated.total / 7;
+    last4Weeks.push(weekStats);
+  }
+
+  // Build extended analytics
+  const extendedAnalytics: ExtendedAnalytics = {
     ...analytics,
-    activeRooms,
-    activePlayers,
-    roomsCreatedToday: roomsToday,
-    roomsCreatedThisWeek: roomsThisWeek,
-    roomsCreatedThisMonth: roomsThisMonth,
+    last7Days: last7DaysData,
+    last4Weeks,
+    mostActiveDay,
   };
 
-  // Sort by lastActiveAt descending
+  // Sort rooms by lastActiveAt descending
   rooms.sort((a, b) => b.summary.lastActiveAt - a.summary.lastActiveAt);
 
-  return { analytics, rooms };
+  return { analytics, extendedAnalytics, rooms };
 }
 
 // Get detailed room info including players and roles

@@ -9,11 +9,13 @@ import {
   endGameForRoom,
   deleteRoom,
 } from '@/app/actions/admin-actions';
+import { AnalyticsChart, GameBreakdownCard, WeeklySummaryCard } from '@/components/AnalyticsChart';
 import type { AdminDashboardData, AdminRoomDetail, GameType, RoomStatus } from '@/types';
 
 const ROOMS_PER_PAGE = 10;
 
 type StatusFilter = 'all' | 'active' | 'inactive';
+type DashboardTab = 'overview' | 'rooms';
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -32,6 +34,7 @@ export default function DashboardPage() {
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
   const [selectedRooms, setSelectedRooms] = useState<Set<string>>(new Set());
   const [showMobileFilters, setShowMobileFilters] = useState(false);
+  const [activeTab, setActiveTab] = useState<DashboardTab>('overview');
   const dataLoadedRef = useRef(false);
   const autoRefreshRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -375,6 +378,125 @@ export default function DashboardPage() {
           </div>
         )}
 
+        {/* Tab Navigation */}
+        <div className="flex items-center gap-2 mb-6 border-b border-gray-800">
+          <button
+            onClick={() => setActiveTab('overview')}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === 'overview'
+                ? 'border-blue-500 text-blue-400'
+                : 'border-transparent text-gray-400 hover:text-gray-300'
+            }`}
+          >
+            📊 Analytics
+          </button>
+          <button
+            onClick={() => setActiveTab('rooms')}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === 'rooms'
+                ? 'border-blue-500 text-blue-400'
+                : 'border-transparent text-gray-400 hover:text-gray-300'
+            }`}
+          >
+            🏠 Rooms ({dashboardData?.rooms.length || 0})
+          </button>
+        </div>
+
+        {/* Analytics Tab */}
+        {activeTab === 'overview' && (
+          <>
+            {/* Quick Stats Cards */}
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4 mb-6 md:mb-8">
+              <div className="bg-gray-900 rounded-lg p-3 md:p-4 border border-gray-800">
+                <div className="text-xl md:text-2xl font-bold text-white mb-1">
+                  {dashboardData?.analytics.activeRooms || 0}
+                </div>
+                <div className="text-gray-400 text-xs">Active Rooms</div>
+              </div>
+              <div className="bg-gray-900 rounded-lg p-3 md:p-4 border border-gray-800">
+                <div className="text-xl md:text-2xl font-bold text-white mb-1">
+                  {dashboardData?.analytics.activePlayers || 0}
+                </div>
+                <div className="text-gray-400 text-xs">Active Players</div>
+              </div>
+              <div className="bg-gray-900 rounded-lg p-3 md:p-4 border border-gray-800">
+                <div className="text-xl md:text-2xl font-bold text-green-400 mb-1">
+                  {dashboardData?.analytics.roomsCreatedToday || 0}
+                </div>
+                <div className="text-gray-400 text-xs">Today</div>
+              </div>
+              <div className="bg-gray-900 rounded-lg p-3 md:p-4 border border-gray-800">
+                <div className="text-xl md:text-2xl font-bold text-blue-400 mb-1">
+                  {dashboardData?.analytics.roomsCreatedThisWeek || 0}
+                </div>
+                <div className="text-gray-400 text-xs">This Week</div>
+              </div>
+              <div className="bg-gray-900 rounded-lg p-3 md:p-4 border border-gray-800">
+                <div className="text-xl md:text-2xl font-bold text-purple-400 mb-1">
+                  {dashboardData?.analytics.roomsCreatedThisMonth || 0}
+                </div>
+                <div className="text-gray-400 text-xs">This Month</div>
+              </div>
+              <div className="bg-gray-900 rounded-lg p-3 md:p-4 border border-gray-800">
+                <div className="text-xl md:text-2xl font-bold text-white mb-1">
+                  {dashboardData?.rooms.length || 0}
+                </div>
+                <div className="text-gray-400 text-xs">Total Rooms</div>
+              </div>
+            </div>
+
+            {/* Analytics Charts */}
+            <div className="space-y-6 mb-8">
+              {/* Daily Activity Chart */}
+              {dashboardData?.extendedAnalytics?.last7Days && (
+                <AnalyticsChart
+                  data={dashboardData.extendedAnalytics.last7Days}
+                  title="Daily Game Activity (Last 7 Days)"
+                  showLegend={true}
+                />
+              )}
+
+              {/* Game Breakdown and Weekly Trend side by side */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {dashboardData?.extendedAnalytics && (
+                  <GameBreakdownCard
+                    todayByGame={dashboardData.extendedAnalytics.todayByGame}
+                    weekByGame={dashboardData.extendedAnalytics.weekByGame}
+                  />
+                )}
+                {dashboardData?.extendedAnalytics?.last4Weeks && (
+                  <WeeklySummaryCard last4Weeks={dashboardData.extendedAnalytics.last4Weeks} />
+                )}
+              </div>
+
+              {/* Most Active Day Highlight */}
+              {dashboardData?.extendedAnalytics?.mostActiveDay && dashboardData.extendedAnalytics.mostActiveDay.gamesCreated > 0 && (
+                <div className="bg-gradient-to-r from-yellow-900/30 to-orange-900/30 border border-yellow-700/50 rounded-lg p-4">
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">⭐</span>
+                    <div>
+                      <p className="text-sm text-yellow-400 font-medium">Most Active Day (Last 7 Days)</p>
+                      <p className="text-lg font-bold text-white">
+                        {new Date(dashboardData.extendedAnalytics.mostActiveDay.date + 'T00:00:00').toLocaleDateString('en-US', {
+                          weekday: 'long',
+                          month: 'short',
+                          day: 'numeric',
+                        })}
+                        <span className="text-yellow-400 ml-2">
+                          — {dashboardData.extendedAnalytics.mostActiveDay.gamesCreated} games created
+                        </span>
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </>
+        )}
+
+        {/* Rooms Tab */}
+        {activeTab === 'rooms' && (
+          <>
         {/* Analytics Cards */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4 mb-6 md:mb-8">
           <div className="bg-gray-900 rounded-lg p-3 md:p-4 border border-gray-800">
@@ -827,6 +949,8 @@ export default function DashboardPage() {
               </button>
             </div>
           </div>
+        )}
+          </>
         )}
 
         {/* Room Details Modal */}
