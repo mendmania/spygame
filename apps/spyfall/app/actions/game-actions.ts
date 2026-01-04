@@ -53,11 +53,15 @@ function shuffleArray<T>(array: T[]): T[] {
  * Server-authoritative game start:
  * 1. Validates the requesting player is the host
  * 2. Validates minimum player count (≥ 3)
- * 3. Uses transaction to prevent double-start race condition
+ * 3. Uses transaction to atomically update status (prevents double-start race condition)
  * 4. Randomly selects exactly one spy
  * 5. Randomly selects one location
  * 6. Assigns roles to all non-spy players
- * 7. Writes all updates atomically
+ * 7. Writes remaining game data atomically
+ * 
+ * RACE CONDITION PROTECTION:
+ * Uses Firebase transaction to ensure only ONE startGame succeeds
+ * even if multiple tabs/clients click simultaneously.
  */
 export async function startGame(
   roomId: string,
@@ -101,6 +105,32 @@ export async function startGame(
     }
 
     // All validations passed - proceed with game setup
+    // Use transaction ONLY to atomically update status from 'waiting' to 'playing'
+    // This prevents race conditions where two clicks start the game simultaneously
+    let transactionError: string | null = null;
+    let transactionCommitted = false;
+    
+    await roomRef.child('meta/status').transaction((currentStatus) => {
+      if (currentStatus === 'waiting') {
+        transactionCommitted = true;
+        return 'playing';
+      } else if (currentStatus === null) {
+        // Admin SDK may pass null initially - return 'playing' to set it
+        // The actual current value will be checked on server
+        transactionCommitted = true;
+        return 'playing';
+      } else {
+        transactionError = `Cannot start: game is currently "${currentStatus}"`;
+        return; // Abort
+      }
+    });
+    
+    if (transactionError || !transactionCommitted) {
+      return { success: false, error: transactionError || 'Failed to start game (status conflict)' };
+    }
+
+    // Transaction succeeded - we now have exclusive lock on the game start
+    // Perform the actual game setup using the roomData we read earlier
     const playerIds = Object.keys(players);
 
     // Randomly select spy
@@ -147,10 +177,8 @@ export async function startGame(
       endsAt,
     };
 
-    // Atomic write using update (not transaction)
-    // Pre-check already validated state, this is fast enough to avoid most race conditions
+    // Write game data (status already set via transaction)
     await roomRef.update({
-      'meta/status': 'playing',
       state: gameState,
       privatePlayerData,
     });

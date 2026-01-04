@@ -17,10 +17,10 @@
             },
             
             "state": {
-              // Only server (admin) can write game state
-              // For client-side, only host can trigger via server action
-              ".write": "auth != null && 
-                        root.child('games/spyfall/rooms/' + $roomId + '/players/' + auth.uid + '/isHost').val() === true"
+              // SECURITY: Only server (Admin SDK) can write game state
+              // Game state includes: currentLocation, spyPlayerId, startedAt, endsAt
+              // Clients trigger changes via Server Actions which use Admin SDK
+              ".write": false
             },
             
             "players": {
@@ -72,10 +72,10 @@
             },
             
             "state": {
-              // Only server (admin SDK) should write game state
-              // Host can trigger via server action
-              ".write": "auth != null && 
-                        root.child('games/werewolf/rooms/' + $roomId + '/players/' + auth.uid + '/isHost').val() === true"
+              // SECURITY: Only server (Admin SDK) can write game state
+              // Game state includes: startedAt, endsAt, dayEndsAt, votingEndsAt, phase info
+              // Clients trigger changes via Server Actions which use Admin SDK
+              ".write": false
             },
             
             "players": {
