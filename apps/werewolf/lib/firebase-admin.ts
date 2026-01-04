@@ -17,8 +17,3 @@ export {
   type Reference,
   type DataSnapshot,
 } from '@vbz/firebase-admin';
-
-    _adminDatabase = getDatabase(getAdminApp());
-  }
-  return _adminDatabase;
-}
