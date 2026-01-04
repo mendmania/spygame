@@ -62,7 +62,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const updateDisplayName = async (name: string) => {
     if (!user) return;
     await updateProfile(user, { displayName: name });
-    setUser({ ...user } as User);
+    // Force re-render with updated user - spread and override displayName
+    // since updateProfile mutates the user object but React won't detect the change
+    setUser({ ...user, displayName: name } as User);
   };
 
   return (
