@@ -12,6 +12,7 @@ import Image from 'next/image';
 import type { WerewolfRole, WerewolfActionResult } from '@vbz/shared-types';
 import { ROLE_CONFIGS, getRoleEmoji, getRoleImagePath } from '../../constants/roles';
 import { CENTER_CARD_COUNT, MIN_PLAYERS, MAX_PLAYERS } from '../../constants/game';
+import { isPremiumRole, getStripeProduct } from '../../constants/stripe';
 import styles from './RoleSelector.module.css';
 
 interface RoleSelectorProps {
@@ -19,6 +20,12 @@ interface RoleSelectorProps {
   playerCount: number;
   isHost: boolean;
   onUpdateRoles: (roles: WerewolfRole[]) => Promise<WerewolfActionResult>;
+  // Premium role support
+  roomId?: string;
+  playerId?: string;
+  isRoleUnlocked?: (role: WerewolfRole) => boolean;
+  onPurchaseRole?: (role: WerewolfRole) => Promise<void>;
+  isPurchasing?: boolean;
 }
 
 // All available roles
@@ -44,6 +51,11 @@ export function RoleSelector({
   playerCount,
   isHost,
   onUpdateRoles,
+  roomId,
+  playerId,
+  isRoleUnlocked,
+  onPurchaseRole,
+  isPurchasing = false,
 }: RoleSelectorProps) {
   const [localRoles, setLocalRoles] = useState<WerewolfRole[]>(selectedRoles);
   const [isUpdating, setIsUpdating] = useState(false);
@@ -114,9 +126,33 @@ export function RoleSelector({
     };
   }, [totalCards, werewolfCount, masonCount, playerCount]);
 
+  // Check if a premium role can be added (is unlocked)
+  const canAddRole = useCallback((role: WerewolfRole): boolean => {
+    if (!isPremiumRole(role)) return true;
+    if (!isRoleUnlocked) return true; // No premium check if hook not provided
+    return isRoleUnlocked(role);
+  }, [isRoleUnlocked]);
+
+  // Handle purchase click for premium roles
+  const handlePurchaseClick = useCallback(async (role: WerewolfRole) => {
+    if (!onPurchaseRole) return;
+    try {
+      await onPurchaseRole(role);
+    } catch (err) {
+      setError('Failed to start purchase');
+    }
+  }, [onPurchaseRole]);
+
   // Update roles
   const handleRoleChange = useCallback(async (role: WerewolfRole, delta: number) => {
     if (!isHost) return;
+
+    // Check if trying to add a premium role that's not unlocked
+    if (delta > 0 && isPremiumRole(role) && !canAddRole(role)) {
+      // Trigger purchase flow instead
+      await handlePurchaseClick(role);
+      return;
+    }
 
     const newRoles = [...localRoles];
     
@@ -145,7 +181,7 @@ export function RoleSelector({
     } finally {
       setIsUpdating(false);
     }
-  }, [isHost, localRoles, onUpdateRoles, selectedRoles]);
+  }, [isHost, localRoles, onUpdateRoles, selectedRoles, canAddRole, handlePurchaseClick]);
 
   // Render role card with counter
   const renderRoleCard = (role: WerewolfRole) => {
@@ -154,25 +190,44 @@ export function RoleSelector({
     const emoji = getRoleEmoji(role);
     const imagePath = getRoleImagePath(role);
     const isHovered = hoveredRole === role;
+    const isPremium = isPremiumRole(role);
+    const isUnlocked = canAddRole(role);
+    const product = isPremium ? getStripeProduct(role) : null;
 
     return (
       <div 
         key={role} 
-        className={`${styles.roleCard} ${count > 0 ? styles.hasCount : ''} ${!isHost ? styles.disabled : ''}`}
+        className={`${styles.roleCard} ${count > 0 ? styles.hasCount : ''} ${!isHost ? styles.disabled : ''} ${isPremium && !isUnlocked ? styles.locked : ''}`}
         onMouseEnter={() => setHoveredRole(role)}
         onMouseLeave={() => setHoveredRole(null)}
       >
+        {/* Premium badge */}
+        {isPremium && (
+          <div className={`${styles.premiumBadge} ${isUnlocked ? styles.unlocked : ''}`}>
+            {isUnlocked ? '✓' : '💎'}
+          </div>
+        )}
+
         <div className={styles.roleImageWrapper}>
           <Image
             src={imagePath}
             alt={config.name}
             width={60}
             height={84}
-            className={styles.roleImage}
+            className={`${styles.roleImage} ${isPremium && !isUnlocked ? styles.lockedImage : ''}`}
             unoptimized
           />
           {count > 0 && (
             <div className={styles.countBadge}>{count}</div>
+          )}
+          {/* Lock overlay for locked premium roles */}
+          {isPremium && !isUnlocked && (
+            <div className={styles.lockOverlay}>
+              <span className={styles.lockIcon}>🔒</span>
+              {product && (
+                <span className={styles.priceTag}>${(product.price / 100).toFixed(2)}</span>
+              )}
+            </div>
           )}
         </div>
         
@@ -183,17 +238,29 @@ export function RoleSelector({
             <button
               className={`${styles.controlBtn} ${styles.removeBtn}`}
               onClick={() => handleRoleChange(role, -1)}
-              disabled={count === 0 || isUpdating}
+              disabled={count === 0 || isUpdating || isPurchasing}
             >
               −
             </button>
-            <button
-              className={`${styles.controlBtn} ${styles.addBtn}`}
-              onClick={() => handleRoleChange(role, 1)}
-              disabled={isUpdating}
-            >
-              +
-            </button>
+            {/* Show purchase button or add button based on unlock status */}
+            {isPremium && !isUnlocked ? (
+              <button
+                className={`${styles.controlBtn} ${styles.purchaseBtn}`}
+                onClick={() => handlePurchaseClick(role)}
+                disabled={isPurchasing}
+                title={`Unlock for $${product ? (product.price / 100).toFixed(2) : '?'}`}
+              >
+                {isPurchasing ? '...' : '💎'}
+              </button>
+            ) : (
+              <button
+                className={`${styles.controlBtn} ${styles.addBtn}`}
+                onClick={() => handleRoleChange(role, 1)}
+                disabled={isUpdating || isPurchasing}
+              >
+                +
+              </button>
+            )}
           </div>
         )}
 
@@ -203,11 +270,22 @@ export function RoleSelector({
             <div className={styles.tooltipHeader}>
               <span>{emoji}</span>
               <span>{config.name}</span>
+              {isPremium && (
+                <span className={`${styles.premiumTag} ${isUnlocked ? styles.unlockedTag : ''}`}>
+                  {isUnlocked ? 'Unlocked' : 'Premium'}
+                </span>
+              )}
               <span className={`${styles.tooltipTeam} ${styles[config.team]}`}>
                 {config.team === 'werewolf' ? '🐺' : '🏘️'}
               </span>
             </div>
             <p className={styles.tooltipDesc}>{config.actionDescription || config.description}</p>
+            {/* Show price for locked premium roles */}
+            {isPremium && !isUnlocked && product && (
+              <p className={styles.tooltipPrice}>
+                Unlock for ${(product.price / 100).toFixed(2)} (this game only)
+              </p>
+            )}
           </div>
         )}
       </div>
