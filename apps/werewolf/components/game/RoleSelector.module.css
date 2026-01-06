@@ -7,6 +7,8 @@
   padding: 1rem;
   margin-bottom: 1rem;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  width: 100%;
+  min-width: 0;
 }
 
 /* Header */
@@ -67,6 +69,7 @@
   border-radius: 12px;
   padding: 0.75rem 1rem;
   margin-bottom: 1rem;
+  min-height: 80px;
 }
 
 .deckLabel {
@@ -175,7 +178,7 @@
 /* Role Grid */
 .roleGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+  grid-template-columns: repeat(3, 1fr);
   gap: 0.5rem;
 }
 

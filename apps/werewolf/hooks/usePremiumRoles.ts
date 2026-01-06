@@ -54,6 +54,47 @@ export function usePremiumRoles({
   const [isPurchasing, setIsPurchasing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Track if we've attempted restore for this room
+  const [hasAttemptedRestore, setHasAttemptedRestore] = useState(false);
+
+  // Reset purchasing state when component mounts (user returned from Stripe)
+  useEffect(() => {
+    setIsPurchasing(false);
+  }, []);
+
+  // Reset restore attempt when room changes
+  useEffect(() => {
+    setHasAttemptedRestore(false);
+  }, [roomId]);
+
+  // Try to restore any previous unlocks when joining the room
+  // Only if the room doesn't already have unlocks loaded
+  useEffect(() => {
+    if (!roomId || hasAttemptedRestore) return;
+    
+    // Wait a short time for Firebase subscription to initialize
+    // If no unlocks are found, try to restore from payment records
+    const timeout = setTimeout(() => {
+      if (unlockedRoles.size === 0) {
+        fetch('/api/stripe/restore-unlocks', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ roomId }),
+        })
+          .then(res => res.json())
+          .then(data => {
+            if (data.restored && data.restoredRoles?.length > 0) {
+              console.log('Restored premium unlocks:', data.restoredRoles);
+            }
+          })
+          .catch(err => console.error('Failed to restore unlocks:', err));
+      }
+      setHasAttemptedRestore(true);
+    }, 1000); // Wait 1 second for Firebase to load
+
+    return () => clearTimeout(timeout);
+  }, [roomId, hasAttemptedRestore, unlockedRoles.size]);
+
   // Listen to room's unlocked premium roles
   useEffect(() => {
     if (!roomId) return;

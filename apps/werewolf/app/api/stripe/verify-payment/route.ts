@@ -4,6 +4,9 @@ import { getAdminDatabase } from '@vbz/firebase-admin';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
+// Payment records expire after 24 hours (in milliseconds)
+const PAYMENT_EXPIRY_MS = 24 * 60 * 60 * 1000;
+
 /**
  * Verify a Stripe payment and unlock the premium role
  * This is used as a fallback when webhooks don't reach localhost
@@ -48,8 +51,9 @@ export async function POST(req: NextRequest) {
     }
 
     const db = getAdminDatabase();
+    const now = Date.now();
     
-    // Check if already unlocked
+    // Check if already unlocked in room
     const existingUnlock = await db
       .ref(`games/werewolf/rooms/${roomId}/unlockedPremiumRoles/${role}`)
       .get();
@@ -62,12 +66,23 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Store the unlock for this room session
-    await db.ref(`games/werewolf/rooms/${roomId}/unlockedPremiumRoles/${role}`).set({
-      unlockedAt: Date.now(),
+    const unlockData = {
+      unlockedAt: now,
       unlockedBy: playerId,
       paymentSessionId: session.id,
       paymentAmount: session.amount_total,
+    };
+
+    // Store the unlock for this room session
+    await db.ref(`games/werewolf/rooms/${roomId}/unlockedPremiumRoles/${role}`).set(unlockData);
+
+    // Also store a global payment record that persists even if the room is deleted
+    // This allows restoring the unlock if the buyer returns to the room
+    await db.ref(`games/werewolf/payments/${session.id}`).set({
+      ...unlockData,
+      roomId,
+      role,
+      expiresAt: now + PAYMENT_EXPIRY_MS,
     });
 
     console.log(`Premium role ${role} unlocked for room ${roomId} by player ${playerId} (via verify-payment)`);

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
+import { getAdminDatabase } from '@vbz/firebase-admin';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
@@ -10,6 +11,19 @@ export async function POST(req: NextRequest) {
     if (!priceId || !roomId || !playerId || !role) {
       return NextResponse.json(
         { error: 'Missing required fields' },
+        { status: 400 }
+      );
+    }
+
+    // Check if role is already unlocked to prevent duplicate purchases
+    const db = getAdminDatabase();
+    const existingUnlock = await db
+      .ref(`games/werewolf/rooms/${roomId}/unlockedPremiumRoles/${role}`)
+      .get();
+
+    if (existingUnlock.exists()) {
+      return NextResponse.json(
+        { error: 'Role is already unlocked for this room' },
         { status: 400 }
       );
     }

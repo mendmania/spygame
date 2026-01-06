@@ -12,6 +12,7 @@
     "type-check": "turbo type-check"
   },
   "devDependencies": {
+    "firebase-tools": "^15.1.0",
     "turbo": "^2.3.3",
     "typescript": "^5.3.3"
   },
