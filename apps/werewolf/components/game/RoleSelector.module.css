@@ -400,6 +400,109 @@
   text-align: center;
 }
 
+/* ==========================================
+   Premium Role Styles
+   ========================================== */
+
+/* Premium badge on role card */
+.premiumBadge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  font-size: 0.65rem;
+  background: linear-gradient(135deg, #ffd700, #ffaa00);
+  color: #1a1a2e;
+  padding: 2px 6px;
+  border-radius: 8px;
+  font-weight: 700;
+  z-index: 5;
+  box-shadow: 0 2px 8px rgba(255, 215, 0, 0.4);
+}
+
+.premiumBadge.unlocked {
+  background: linear-gradient(135deg, #4ade80, #22c55e);
+  box-shadow: 0 2px 8px rgba(74, 222, 128, 0.4);
+}
+
+/* Locked premium role card */
+.roleCard.locked {
+  opacity: 0.85;
+  position: relative;
+}
+
+.roleCard.locked:hover {
+  transform: translateY(-3px);
+}
+
+/* Grayscale effect on locked role image */
+.lockedImage {
+  filter: grayscale(40%) brightness(0.8);
+}
+
+/* Lock overlay on role image */
+.lockOverlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+  border-radius: 6px;
+  gap: 2px;
+}
+
+.lockIcon {
+  font-size: 1.25rem;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
+}
+
+.priceTag {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: #ffd700;
+  background: rgba(0, 0, 0, 0.6);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+/* Purchase button */
+.purchaseBtn {
+  background: linear-gradient(135deg, rgba(255, 215, 0, 0.3), rgba(255, 170, 0, 0.2)) !important;
+  border: 1px solid rgba(255, 215, 0, 0.4) !important;
+}
+
+.purchaseBtn:hover:not(:disabled) {
+  background: linear-gradient(135deg, rgba(255, 215, 0, 0.5), rgba(255, 170, 0, 0.4)) !important;
+  transform: scale(1.1);
+  box-shadow: 0 2px 12px rgba(255, 215, 0, 0.3);
+}
+
+/* Premium tag in tooltip */
+.premiumTag {
+  font-size: 0.6rem;
+  background: linear-gradient(135deg, #ffd700, #ffaa00);
+  color: #1a1a2e;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 600;
+  margin-left: auto;
+}
+
+.premiumTag.unlockedTag {
+  background: linear-gradient(135deg, #4ade80, #22c55e);
+}
+
+/* Price in tooltip */
+.tooltipPrice {
+  color: #ffd700;
+  font-weight: 600;
+  font-size: 0.7rem;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
 /* Mobile Responsive */
 @media (max-width: 480px) {
   .panel {
@@ -434,5 +537,18 @@
     width: 32px;
     height: 32px;
     font-size: 1.2rem;
+  }
+
+  .premiumBadge {
+    font-size: 0.55rem;
+    padding: 1px 4px;
+  }
+
+  .lockIcon {
+    font-size: 1rem;
+  }
+
+  .priceTag {
+    font-size: 0.55rem;
   }
 }

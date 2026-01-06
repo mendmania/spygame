@@ -15,8 +15,8 @@
 import { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useRouter } from 'next/navigation';
-import { useWerewolfRoom, useCurrentPlayerRole, useNightPhase } from '../../../hooks';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useWerewolfRoom, useCurrentPlayerRole, useNightPhase, usePremiumRoles } from '../../../hooks';
 import {
   RoleCard,
   PlayersList,
@@ -180,6 +180,7 @@ function NightActionResultSummary({
 
 export default function RoomPage({ params }: RoomPageProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const roomId = params.roomId.toUpperCase();
   
   // Main room hook
@@ -222,6 +223,59 @@ export default function RoomPage({ params }: RoomPageProps) {
     selectedRoles,
     updateSelectedRoles,
   } = useWerewolfRoom({ roomId, autoJoin: true });
+
+  // Premium roles hook
+  const {
+    isRoleUnlocked,
+    purchaseRole,
+    isPurchasing,
+    error: premiumError,
+    clearError: clearPremiumError,
+  } = usePremiumRoles({
+    roomId,
+    playerId: playerId || '',
+  });
+
+  // Handle payment redirect status
+  const [paymentStatus, setPaymentStatus] = useState<'success' | 'cancelled' | null>(null);
+  
+  useEffect(() => {
+    const payment = searchParams.get('payment');
+    const sessionId = searchParams.get('session_id');
+    
+    if (payment === 'success' && sessionId) {
+      setPaymentStatus('success');
+      
+      // Verify payment and unlock the role (fallback for when webhooks don't work)
+      fetch('/api/stripe/verify-payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId }),
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            console.log('Payment verified and role unlocked:', data.role);
+          } else {
+            console.error('Payment verification failed:', data.error);
+          }
+        })
+        .catch(err => console.error('Payment verification error:', err))
+        .finally(() => {
+          // Clear the URL params after verification
+          setTimeout(() => {
+            router.replace(`/room/${roomId}`);
+            setPaymentStatus(null);
+          }, 2000);
+        });
+    } else if (payment === 'cancelled') {
+      setPaymentStatus('cancelled');
+      setTimeout(() => {
+        router.replace(`/room/${roomId}`);
+        setPaymentStatus(null);
+      }, 3000);
+    }
+  }, [searchParams, roomId, router]);
 
   // Redirect to home if kicked
   useEffect(() => {
@@ -499,6 +553,24 @@ export default function RoomPage({ params }: RoomPageProps) {
                 <span className={styles.codeValue}>{roomId}</span>
               </div>
 
+              {/* Payment status notification */}
+              {paymentStatus === 'success' && (
+                <div className={styles.paymentSuccess}>
+                  ✅ Payment successful! Premium role unlocked for this game.
+                </div>
+              )}
+              {paymentStatus === 'cancelled' && (
+                <div className={styles.paymentCancelled}>
+                  ❌ Payment cancelled. You can try again anytime.
+                </div>
+              )}
+              {premiumError && (
+                <div className={styles.paymentError}>
+                  ❌ {premiumError}
+                  <button onClick={clearPremiumError} className={styles.dismissBtn}>Dismiss</button>
+                </div>
+              )}
+
               <PlayersList
                 players={players}
                 currentPlayerId={playerId}
@@ -512,6 +584,11 @@ export default function RoomPage({ params }: RoomPageProps) {
                 playerCount={players.length}
                 isHost={isHost}
                 onUpdateRoles={updateSelectedRoles}
+                roomId={roomId}
+                playerId={playerId || ''}
+                isRoleUnlocked={isRoleUnlocked}
+                onPurchaseRole={purchaseRole}
+                isPurchasing={isPurchasing}
               />
 
               {isHost && (
