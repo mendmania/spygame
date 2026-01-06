@@ -7,6 +7,9 @@
             // Anyone authenticated can read public room data
             ".read": "auth != null",
             
+            // Allow creating new rooms (write entire room when it doesn't exist)
+            ".write": "auth != null && !data.exists()",
+            
             "meta": {
               // Only room creator or existing players can write meta
               ".write": "auth != null && (
@@ -54,6 +57,9 @@
           "$roomId": {
             // Anyone authenticated can read public room data
             ".read": "auth != null",
+            
+            // Allow creating new rooms (write entire room when it doesn't exist)
+            ".write": "auth != null && !data.exists()",
             
             "meta": {
               // Only room creator or existing players can write meta (excluding selectedRoles during game)
@@ -131,8 +137,22 @@
             "result": {
               // Game result - visible after game ends
               ".read": "auth != null && root.child('games/werewolf/rooms/' + $roomId + '/meta/status').val() === 'ended'"
+            },
+            
+            "unlockedPremiumRoles": {
+              // Premium role unlocks - readable by authenticated users, writable only by server
+              ".read": "auth != null",
+              ".write": false
             }
           }
+        },
+        
+        "payments": {
+          // Payment records for premium role unlocks (24h expiry)
+          // Only server can read/write, indexed by roomId for queries
+          ".read": false,
+          ".write": false,
+          ".indexOn": ["roomId"]
         }
       }
     }

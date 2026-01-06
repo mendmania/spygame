@@ -6,6 +6,9 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
 
+// Payment records expire after 24 hours (in milliseconds)
+const PAYMENT_EXPIRY_MS = 24 * 60 * 60 * 1000;
+
 export async function POST(req: NextRequest) {
   const body = await req.text();
   const signature = req.headers.get('stripe-signature');
@@ -42,14 +45,26 @@ export async function POST(req: NextRequest) {
 
     try {
       const db = getAdminDatabase();
+      const now = Date.now();
       
-      // Store the unlock for this room session
-      // This unlocks the role for everyone in this room for this game
-      await db.ref(`games/werewolf/rooms/${roomId}/unlockedPremiumRoles/${role}`).set({
-        unlockedAt: Date.now(),
+      const unlockData = {
+        unlockedAt: now,
         unlockedBy: playerId,
         paymentSessionId: session.id,
         paymentAmount: session.amount_total,
+      };
+      
+      // Store the unlock for this room session
+      // This unlocks the role for everyone in this room for this game
+      await db.ref(`games/werewolf/rooms/${roomId}/unlockedPremiumRoles/${role}`).set(unlockData);
+
+      // Also store a global payment record that persists even if the room is deleted
+      // This allows restoring the unlock if the buyer returns to the room
+      await db.ref(`games/werewolf/payments/${session.id}`).set({
+        ...unlockData,
+        roomId,
+        role,
+        expiresAt: now + PAYMENT_EXPIRY_MS,
       });
 
       console.log(`Premium role ${role} unlocked for room ${roomId} by player ${playerId}`);
