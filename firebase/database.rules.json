@@ -48,8 +48,31 @@
                 // Only server (admin) can write private player data
                 ".write": false
               }
+            },
+            
+            "gameSettings": {
+              // Game settings (category, customLocations, duration)
+              // Only host can write settings, and only during waiting phase
+              ".read": "auth != null",
+              ".write": "auth != null && 
+                        root.child('games/spyfall/rooms/' + $roomId + '/players/' + auth.uid + '/isHost').val() === true &&
+                        root.child('games/spyfall/rooms/' + $roomId + '/meta/status').val() === 'waiting'"
+            },
+            
+            "unlockedPremiumFeatures": {
+              // Premium feature unlocks - readable by authenticated users, writable only by server
+              ".read": "auth != null",
+              ".write": false
             }
           }
+        },
+        
+        "payments": {
+          // Payment records for premium feature unlocks (24h expiry)
+          // Only server can read/write, indexed by roomId for queries
+          ".read": false,
+          ".write": false,
+          ".indexOn": ["roomId"]
         }
       },
       "werewolf": {

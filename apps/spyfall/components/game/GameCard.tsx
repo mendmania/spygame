@@ -5,11 +5,17 @@ import styles from './GameCard.module.css';
 
 interface GameCardProps {
   location?: string;
-  role?: string;
+  role?: string | null; // null for categories without roles (e.g., animals, custom)
   isSpy?: boolean;
+  categoryLabel?: string; // e.g., "ANIMAL", "FOOD", "SPORT"
 }
 
-export function GameCard({ location = 'Beach', role = 'Lifeguard', isSpy = false }: GameCardProps) {
+export function GameCard({ 
+  location = 'Beach', 
+  role, // No default - null/undefined means no role
+  isSpy = false,
+  categoryLabel = 'LOCATION'
+}: GameCardProps) {
   const [isFlipped, setIsFlipped] = useState(false);
 
   const handleClick = () => {
@@ -33,18 +39,20 @@ export function GameCard({ location = 'Beach', role = 'Lifeguard', isSpy = false
             <div className={styles.spyContent}>
               <span className={styles.spyIcon}>🕵️</span>
               <h2 className={styles.spyTitle}>You are the SPY</h2>
-              <p className={styles.spyHint}>Figure out the location!</p>
+              <p className={styles.spyHint}>Figure out the {categoryLabel.toLowerCase()}!</p>
             </div>
           ) : (
             <>
               <div className={styles.locationSection}>
-                <span className={styles.label}>LOCATION</span>
+                <span className={styles.label}>{categoryLabel}</span>
                 <h2 className={styles.location}>{location}</h2>
               </div>
-              <div className={styles.roleSection}>
-                <span className={styles.label}>YOUR ROLE</span>
-                <h3 className={styles.role}>{role}</h3>
-              </div>
+              {role && (
+                <div className={styles.roleSection}>
+                  <span className={styles.label}>YOUR ROLE</span>
+                  <h3 className={styles.role}>{role}</h3>
+                </div>
+              )}
             </>
           )}
         </div>

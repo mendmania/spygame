@@ -1,0 +1,133 @@
+.container {
+  margin-bottom: 1.5rem;
+  padding: 1.25rem;
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.8) 0%, rgba(15, 23, 42, 0.9) 100%);
+  border-radius: 16px;
+  border: 1px solid rgba(148, 163, 184, 0.1);
+}
+
+.title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+  color: #f1f5f9;
+}
+
+.subtitle {
+  font-size: 0.875rem;
+  color: #94a3b8;
+  margin-bottom: 1rem;
+}
+
+.categoryGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 0.75rem;
+}
+
+.categoryCard {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 1rem 0.75rem;
+  border: 2px solid rgba(148, 163, 184, 0.2);
+  border-radius: 14px;
+  background: linear-gradient(145deg, rgba(51, 65, 85, 0.5) 0%, rgba(30, 41, 59, 0.7) 100%);
+  cursor: pointer;
+  transition: all 0.25s ease;
+  text-align: center;
+}
+
+.categoryCard:hover:not(:disabled) {
+  border-color: rgba(96, 165, 250, 0.5);
+  transform: translateY(-3px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3), 0 0 20px rgba(96, 165, 250, 0.1);
+}
+
+.categoryCard.selected {
+  border-color: #60a5fa;
+  background: linear-gradient(145deg, rgba(59, 130, 246, 0.2) 0%, rgba(37, 99, 235, 0.3) 100%);
+  box-shadow: 0 0 20px rgba(96, 165, 250, 0.2);
+}
+
+.categoryCard.locked {
+  background: linear-gradient(145deg, rgba(51, 65, 85, 0.3) 0%, rgba(30, 41, 59, 0.4) 100%);
+  border-color: rgba(251, 191, 36, 0.3);
+}
+
+.categoryCard.locked:hover:not(:disabled) {
+  border-color: rgba(251, 191, 36, 0.6);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3), 0 0 20px rgba(251, 191, 36, 0.15);
+}
+
+.categoryCard:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.emoji {
+  font-size: 2.25rem;
+  margin-bottom: 0.5rem;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+}
+
+.name {
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: #e2e8f0;
+  margin-bottom: 0.25rem;
+}
+
+.count {
+  font-size: 0.7rem;
+  color: #94a3b8;
+}
+
+.freeTag {
+  color: #34d399;
+  font-weight: 700;
+  font-size: 0.7rem;
+  padding: 0.15rem 0.5rem;
+  background: rgba(52, 211, 153, 0.15);
+  border-radius: 20px;
+}
+
+.price {
+  color: #fbbf24;
+  font-weight: 700;
+  font-size: 0.75rem;
+  padding: 0.15rem 0.5rem;
+  background: rgba(251, 191, 36, 0.15);
+  border-radius: 20px;
+}
+
+.unlocked {
+  color: #34d399;
+  font-weight: 600;
+}
+
+.lockIcon {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  font-size: 0.8rem;
+  opacity: 0.8;
+}
+
+.checkmark {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  font-size: 1rem;
+  color: #60a5fa;
+  font-weight: bold;
+  text-shadow: 0 0 8px rgba(96, 165, 250, 0.5);
+}
+
+.purchasingText {
+  text-align: center;
+  margin-top: 1rem;
+  color: #94a3b8;
+  font-size: 0.875rem;
+}

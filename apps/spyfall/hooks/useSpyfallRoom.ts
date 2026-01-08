@@ -15,6 +15,8 @@ import type {
   SpyfallRoomData,
   SpyfallRoomState,
   SpyfallPrivatePlayerData,
+  SpyfallGameSettings,
+  SpyfallPremiumFeature,
   GameActionResult,
 } from '@vbz/shared-types';
 import {
@@ -33,6 +35,7 @@ import {
   checkAndEndExpiredGame,
   handlePlayerLeave,
   kickPlayer as kickPlayerAction,
+  updateGameSettings as updateGameSettingsAction,
 } from '../app/actions/game-actions';
 
 interface UseSpyfallRoomOptions {
@@ -57,10 +60,11 @@ interface UseSpyfallRoomResult {
   updateDisplayName: (name: string) => Promise<void>;
   
   // Game actions
-  startGame: (durationSeconds?: number) => Promise<GameActionResult>;
+  startGame: (settings?: Partial<SpyfallGameSettings>) => Promise<GameActionResult>;
   endGame: () => Promise<GameActionResult>;
   resetGame: () => Promise<GameActionResult>;
   kickPlayer: (targetPlayerId: string) => Promise<GameActionResult>;
+  updateGameSettings: (settings: Partial<SpyfallGameSettings>) => Promise<GameActionResult>;
   
   // Computed
   isInRoom: boolean;
@@ -68,6 +72,7 @@ interface UseSpyfallRoomResult {
   isSpectator: boolean;
   canStart: boolean;
   timeRemaining: number | null;
+  gameSettings: SpyfallGameSettings | null;
 }
 
 function transformRoomData(
@@ -105,6 +110,8 @@ function transformRoomData(
     isFinished,
     // Spy is revealed to all players when game is finished
     revealedSpyId: isFinished ? (data.state?.spyPlayerId || null) : null,
+    gameSettings: data.gameSettings || null,
+    unlockedPremiumFeatures: new Set(Object.keys(data.unlockedPremiumFeatures || {}) as SpyfallPremiumFeature[]),
   };
 }
 
@@ -186,15 +193,20 @@ export function useSpyfallRoom({
 
   // Timer countdown effect
   // Timer stops at 00:00 and waits for host to end game manually
+  // Dependencies use specific values (endsAt, startedAt) to detect new game starts
+  const gameEndsAt = roomData?.state?.endsAt;
+  const gameStartedAt = roomData?.state?.startedAt;
+  const gameStatus = roomData?.meta?.status;
+  
   useEffect(() => {
-    if (!roomData?.state || roomData.meta.status !== 'playing') {
+    if (!gameEndsAt || gameStatus !== 'playing') {
       setTimeRemaining(null);
       return;
     }
 
     const updateTimer = () => {
       const now = Date.now();
-      const remaining = Math.max(0, Math.floor((roomData.state!.endsAt - now) / 1000));
+      const remaining = Math.max(0, Math.floor((gameEndsAt - now) / 1000));
       setTimeRemaining(remaining);
       // Timer stays at 00:00 - host must click "End Game" to finish
     };
@@ -206,7 +218,7 @@ export function useSpyfallRoom({
     const interval = setInterval(updateTimer, 1000);
 
     return () => clearInterval(interval);
-  }, [roomData?.state, roomData?.meta.status, roomId]);
+  }, [gameEndsAt, gameStartedAt, gameStatus]);
 
   // Auto-join logic with mid-game reconnect handling
   useEffect(() => {
@@ -342,12 +354,12 @@ export function useSpyfallRoom({
   }, [roomId, playerId, setDisplayName]);
 
   // Game actions (call server actions)
-  const startGame = useCallback(async (durationSeconds?: number): Promise<GameActionResult> => {
+  const startGame = useCallback(async (settings?: Partial<SpyfallGameSettings>): Promise<GameActionResult> => {
     if (!playerId) return { success: false, error: 'Not authenticated' };
     
     try {
       setError(null);
-      const result = await startGameAction(roomId, playerId, durationSeconds);
+      const result = await startGameAction(roomId, playerId, settings);
       if (!result.success && result.error) {
         setError(result.error);
       }
@@ -410,6 +422,23 @@ export function useSpyfallRoom({
     }
   }, [roomId, playerId]);
 
+  const updateGameSettings = useCallback(async (settings: Partial<SpyfallGameSettings>): Promise<GameActionResult> => {
+    if (!playerId) return { success: false, error: 'Not authenticated' };
+    
+    try {
+      setError(null);
+      const result = await updateGameSettingsAction(roomId, playerId, settings);
+      if (!result.success && result.error) {
+        setError(result.error);
+      }
+      return result;
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Failed to update game settings';
+      setError(errorMsg);
+      return { success: false, error: errorMsg };
+    }
+  }, [roomId, playerId]);
+
   // Transform data for UI consumption
   const roomState = transformRoomData(roomId, roomData, playerId, privatePlayerData);
 
@@ -437,11 +466,13 @@ export function useSpyfallRoom({
     endGame,
     resetGame,
     kickPlayer,
+    updateGameSettings,
     isInRoom: hasJoined,
     isHost: roomState?.isHost ?? false,
     // Spectator: room exists, game is active, but player is not in the game
     isSpectator: !!roomState && !hasJoined && (roomState.isPlaying || roomState.isFinished),
     canStart: (roomState?.playerCount ?? 0) >= 3 && roomState?.meta.status === 'waiting',
     timeRemaining,
+    gameSettings: roomState?.gameSettings || null,
   };
 }
