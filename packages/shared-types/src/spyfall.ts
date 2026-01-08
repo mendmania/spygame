@@ -24,7 +24,56 @@ import { RoomStatus } from './index';
  *       role: string | null (null for spy)
  *       location: string | null (null for spy)
  *       isSpy: boolean
+ *   gameSettings: (optional, host-configured before game starts)
+ *     category: SpyfallCategory
+ *     customLocations?: SpyfallLocation[]
+ *     gameDurationSeconds: number
+ *   unlockedPremiumFeatures:
+ *     {feature}:
+ *       unlockedAt: number
+ *       unlockedBy: string
+ *       paymentSessionId: string
+ *       paymentAmount: number
  */
+
+// =============================================================================
+// Premium Features Types
+// =============================================================================
+
+/** Available game categories */
+export type SpyfallCategory = 'locations' | 'animals' | 'foods' | 'custom';
+
+/** Premium features that require payment */
+export type SpyfallPremiumFeature = 'custom_category';
+
+/** Category pack configuration */
+export interface SpyfallCategoryPack {
+  id: SpyfallCategory;
+  name: string;
+  description: string;
+  emoji: string;
+  items: SpyfallLocation[];
+  isPremium: boolean;
+}
+
+/** Premium feature unlock record */
+export interface SpyfallPremiumUnlock {
+  unlockedAt: number;
+  unlockedBy: string;
+  paymentSessionId: string;
+  paymentAmount: number;
+}
+
+/** Game settings configured by host before starting */
+export interface SpyfallGameSettings {
+  category: SpyfallCategory;
+  customLocations?: SpyfallLocation[];
+  gameDurationSeconds: number;
+}
+
+// =============================================================================
+// Room Types
+// =============================================================================
 
 // Room metadata
 export interface SpyfallRoomMeta {
@@ -65,6 +114,8 @@ export interface SpyfallRoomData {
   state?: SpyfallGameState;
   players: SpyfallPlayersMap;
   privatePlayerData?: SpyfallPrivatePlayerDataMap;
+  gameSettings?: SpyfallGameSettings;
+  unlockedPremiumFeatures?: Record<SpyfallPremiumFeature, SpyfallPremiumUnlock>;
 }
 
 // Room state for UI consumption
@@ -80,6 +131,8 @@ export interface SpyfallRoomState {
   isPlaying: boolean;
   isFinished: boolean;
   revealedSpyId: string | null;
+  gameSettings: SpyfallGameSettings | null;
+  unlockedPremiumFeatures: Set<SpyfallPremiumFeature>;
 }
 
 // Actions for room mutations

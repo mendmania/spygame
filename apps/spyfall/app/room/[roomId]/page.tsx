@@ -1,11 +1,13 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { GameCard, Timer, PlayersList, LocationsGrid, Player } from '../../../components/game';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { GameCard, Timer, PlayersList, LocationsGrid, Player, CategorySelector, CustomLocationsEditor } from '../../../components/game';
 import { SPY_LOCATIONS } from '../../../constants/locations';
-import { useSpyfallRoom } from '../../../hooks/useSpyfallRoom';
+import { getCategoryItems, CATEGORY_PACKS } from '../../../constants/categories';
+import { useSpyfallRoom, usePremiumFeatures } from '../../../hooks';
+import type { SpyfallCategory, SpyfallLocation, SpyfallGameSettings } from '@vbz/shared-types';
 import styles from './page.module.css';
 
 interface RoomPageProps {
@@ -14,6 +16,7 @@ interface RoomPageProps {
 
 export default function RoomPage({ params }: RoomPageProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const roomId = params.roomId.toUpperCase();
   
   // Realtime room subscription with auto-join
@@ -33,20 +36,143 @@ export default function RoomPage({ params }: RoomPageProps) {
     resetGame,
     kickPlayer,
     timeRemaining,
+    gameSettings,
+    updateGameSettings,
   } = useSpyfallRoom({ roomId, autoJoin: true });
+
+  // Premium features hook
+  const {
+    isFeatureUnlocked,
+    purchaseFeature,
+    isPurchasing,
+    error: premiumError,
+    clearError: clearPremiumError,
+  } = usePremiumFeatures({
+    roomId,
+    playerId: playerId || '',
+  });
   
   // Game state
   const isPlaying = roomState?.isPlaying ?? false;
   const isFinished = roomState?.isFinished ?? false;
   const gameData = roomState?.currentPlayerGameData;
   
-  // Debug: Log when isHost changes
-  console.log('[GameState]', { isPlaying, isFinished, isHost, hasGameData: !!gameData });
+  // Debug: Log game state changes
+  console.log('[GameState]', { 
+    isPlaying, 
+    isFinished, 
+    isHost,
+    canStart,
+    playerCount: roomState?.playerCount,
+    status: roomState?.meta?.status,
+    hasGameData: !!gameData,
+    state: roomState?.state,
+    timeRemaining,
+  });
   
-  // Editable display name
+  // Local state
   const [isEditingName, setIsEditingName] = useState(false);
   const [nameInput, setNameInput] = useState('');
   const [isStarting, setIsStarting] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<SpyfallCategory>('locations');
+  const [customLocations, setCustomLocations] = useState<SpyfallLocation[]>([]);
+  const [paymentStatus, setPaymentStatus] = useState<'success' | 'cancelled' | null>(null);
+
+  // Handle payment redirect status
+  useEffect(() => {
+    const payment = searchParams.get('payment');
+    const sessionId = searchParams.get('session_id');
+    
+    if (payment === 'success' && sessionId) {
+      setPaymentStatus('success');
+      
+      // Verify payment and unlock the feature
+      fetch('/api/stripe/verify-payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId }),
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            console.log('Payment verified and feature unlocked:', data.feature);
+          } else {
+            console.error('Payment verification failed:', data.error);
+          }
+        })
+        .catch(err => console.error('Payment verification error:', err))
+        .finally(() => {
+          // Clear the URL params after verification
+          setTimeout(() => {
+            router.replace(`/room/${roomId}`);
+            setPaymentStatus(null);
+          }, 2000);
+        });
+    } else if (payment === 'cancelled') {
+      setPaymentStatus('cancelled');
+      setTimeout(() => {
+        router.replace(`/room/${roomId}`);
+        setPaymentStatus(null);
+      }, 3000);
+    }
+  }, [searchParams, roomId, router]);
+
+  // Sync category from room settings when game is active
+  // Use specific values as dependencies to properly detect changes
+  const settingsCategory = gameSettings?.category;
+  const settingsCustomLocations = gameSettings?.customLocations;
+  
+  // When game settings are cleared (game reset), reset local state to defaults
+  useEffect(() => {
+    if (settingsCategory) {
+      setSelectedCategory(settingsCategory);
+    } else if (gameSettings === null) {
+      // Game was reset - go back to default category
+      setSelectedCategory('locations');
+    }
+  }, [settingsCategory, gameSettings]);
+  
+  useEffect(() => {
+    if (settingsCustomLocations && settingsCustomLocations.length > 0) {
+      setCustomLocations(settingsCustomLocations);
+    } else if (gameSettings === null) {
+      // Game was reset - clear custom locations
+      setCustomLocations([]);
+    }
+  }, [settingsCustomLocations, gameSettings]);
+
+  // Get the current locations to display based on category
+  // Use gameSettings.category when game is active, otherwise use local selectedCategory
+  const currentLocations = useMemo(() => {
+    const effectiveCategory = settingsCategory ?? selectedCategory;
+    if (effectiveCategory === 'custom') {
+      // Use custom locations from gameSettings if available, otherwise local state
+      return settingsCustomLocations || customLocations;
+    }
+    return getCategoryItems(effectiveCategory);
+  }, [settingsCategory, settingsCustomLocations, selectedCategory, customLocations]);
+
+  // Get category label for the game card
+  const categoryLabel = useMemo(() => {
+    const labels: Record<SpyfallCategory, string> = {
+      locations: 'LOCATION',
+      animals: 'ANIMAL',
+      foods: 'FOOD',
+      custom: 'ITEM',
+    };
+    const effectiveCategory = settingsCategory ?? selectedCategory;
+    return labels[effectiveCategory] || 'LOCATION';
+  }, [settingsCategory, selectedCategory]);
+
+  // Get category info for the grid panel
+  const categoryGridInfo = useMemo(() => {
+    const effectiveCategory = settingsCategory ?? selectedCategory;
+    const pack = CATEGORY_PACKS[effectiveCategory];
+    return {
+      label: pack?.name || 'Locations',
+      emoji: pack?.emoji || '📍',
+    };
+  }, [settingsCategory, selectedCategory]);
 
   // Transform realtime players to PlayersList format
   const players: Player[] = useMemo(() => {
@@ -86,9 +212,43 @@ export default function RoomPage({ params }: RoomPageProps) {
   // Handle start game
   const handleStartGame = async () => {
     setIsStarting(true);
-    await startGame();
+    const settings: Partial<SpyfallGameSettings> = {
+      category: selectedCategory,
+      gameDurationSeconds: 480,
+    };
+    if (selectedCategory === 'custom') {
+      settings.customLocations = customLocations;
+    }
+    console.log('[StartGame] Starting with settings:', settings);
+    const result = await startGame(settings);
+    console.log('[StartGame] Result:', result);
+    if (!result.success) {
+      console.error('[StartGame] Failed:', result.error);
+    }
     setIsStarting(false);
   };
+
+  // Handle category change (host only) - just update local state
+  // Settings are sent to server when starting the game
+  const handleCategoryChange = (category: SpyfallCategory) => {
+    setSelectedCategory(category);
+  };
+
+  // Handle custom locations change (host only) - just update local state
+  // Settings are sent to server when starting the game
+  const handleCustomLocationsChange = (locations: SpyfallLocation[]) => {
+    setCustomLocations(locations);
+  };
+
+  // Handle purchase custom category
+  const handlePurchaseCustom = async () => {
+    await purchaseFeature('custom_category');
+  };
+
+  // Check if custom category can be started (just need 5 items with names, no roles required)
+  const canStartCustom = selectedCategory !== 'custom' || customLocations.filter(
+    loc => loc.name.trim()
+  ).length >= 5;
 
   // Handle end game (host only)
   const handleEndGame = async () => {
@@ -266,17 +426,22 @@ export default function RoomPage({ params }: RoomPageProps) {
                   </div>
                 )}
                 
-                {/* GameCard - receives data via props only (UNCHANGED) */}
+                {/* GameCard - receives data via props only */}
                 <GameCard 
                   location={gameData?.location ?? undefined}
-                  role={gameData?.role ?? undefined}
+                  role={gameData?.role} // null for categories without roles (animals, custom)
                   isSpy={gameData?.isSpy ?? false}
+                  categoryLabel={categoryLabel}
                 />
               </div>
 
               {/* Right Panel - Locations */}
               <aside className={styles.rightPanel}>
-                <LocationsGrid locations={SPY_LOCATIONS} />
+                <LocationsGrid 
+                  locations={currentLocations.length > 0 ? currentLocations : SPY_LOCATIONS}
+                  categoryLabel={categoryGridInfo.label}
+                  categoryEmoji={categoryGridInfo.emoji}
+                />
               </aside>
             </div>
           </>
@@ -299,17 +464,64 @@ export default function RoomPage({ params }: RoomPageProps) {
                 onKick={kickPlayer}
               />
 
+              {/* Payment Status Toast */}
+              {paymentStatus === 'success' && (
+                <div className={styles.paymentSuccess}>
+                  ✓ Payment successful! Custom mode unlocked.
+                </div>
+              )}
+              {paymentStatus === 'cancelled' && (
+                <div className={styles.paymentCancelled}>
+                  Payment cancelled. You can try again.
+                </div>
+              )}
+
+              {/* Category Selector - Only visible to host */}
+              {isHost && (
+                <CategorySelector
+                  selectedCategory={selectedCategory}
+                  onSelectCategory={handleCategoryChange}
+                  isCustomUnlocked={isFeatureUnlocked('custom_category')}
+                  onPurchaseCustom={handlePurchaseCustom}
+                  isPurchasing={isPurchasing}
+                  disabled={isStarting}
+                />
+              )}
+
+              {/* Show selected category to non-host players */}
+              {!isHost && selectedCategory && (
+                <div className={styles.selectedCategoryInfo}>
+                  <span className={styles.categoryLabel}>Game Mode:</span>
+                  <span className={styles.categoryValue}>
+                    {CATEGORY_PACKS[selectedCategory].emoji} {CATEGORY_PACKS[selectedCategory].name}
+                  </span>
+                </div>
+              )}
+
+              {/* Custom Locations Editor - Only when custom is selected */}
+              {/* TEMP: Bypassed premium check for testing - was: isFeatureUnlocked('custom_category') */}
+              {isHost && selectedCategory === 'custom' && (
+                <CustomLocationsEditor
+                  locations={customLocations}
+                  onLocationsChange={handleCustomLocationsChange}
+                  disabled={isStarting}
+                  minItems={5}
+                />
+              )}
+
               {isHost && (
                 <button 
-                  className={`${styles.startButton} ${!canStart || isStarting ? styles.startButtonDisabled : ''}`}
-                  disabled={!canStart || isStarting}
+                  className={`${styles.startButton} ${(!canStart || isStarting || !canStartCustom) ? styles.startButtonDisabled : ''}`}
+                  disabled={!canStart || isStarting || !canStartCustom}
                   onClick={handleStartGame}
                 >
                   {isStarting 
                     ? 'Starting...' 
-                    : canStart 
-                      ? 'Start Game' 
-                      : `Need ${3 - (roomState?.playerCount ?? 0)} more players`
+                    : !canStart 
+                      ? `Need ${3 - (roomState?.playerCount ?? 0)} more players`
+                      : !canStartCustom
+                        ? 'Add more custom items'
+                        : 'Start Game'
                   }
                 </button>
               )}
@@ -326,6 +538,9 @@ export default function RoomPage({ params }: RoomPageProps) {
               {error && (
                 <p className={styles.errorMessage}>{error}</p>
               )}
+              {premiumError && (
+                <p className={styles.errorMessage}>{premiumError}</p>
+              )}
             </div>
           </div>
         )}
@@ -334,7 +549,7 @@ export default function RoomPage({ params }: RoomPageProps) {
       {/* Mobile Locations - Shown below on small screens */}
       {(isPlaying || isFinished) && (
         <div className={styles.mobileLocations}>
-          <LocationsGrid locations={SPY_LOCATIONS} />
+          <LocationsGrid locations={currentLocations.length > 0 ? currentLocations : SPY_LOCATIONS} />
         </div>
       )}
     </div>

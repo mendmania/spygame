@@ -74,6 +74,16 @@
   border-radius: 0.25rem;
 }
 
+/* No roles - non-interactive style */
+.locationCard.noRoles {
+  cursor: default;
+}
+
+.locationCard.noRoles:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
 @media (max-width: 640px) {
   .grid {
     grid-template-columns: repeat(2, 1fr);

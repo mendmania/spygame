@@ -1,0 +1,153 @@
+.container {
+  margin-top: 1rem;
+  padding: 1.25rem;
+  border: 2px dashed rgba(148, 163, 184, 0.3);
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.6) 0%, rgba(15, 23, 42, 0.7) 100%);
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.25rem;
+}
+
+.title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #f1f5f9;
+  margin: 0;
+}
+
+.counter {
+  font-size: 0.875rem;
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+.counter.valid {
+  color: #34d399;
+}
+
+.subtitle {
+  font-size: 0.8rem;
+  color: #94a3b8;
+  margin-bottom: 1rem;
+}
+
+/* Add item section */
+.addSection {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.addInput {
+  flex: 1;
+  padding: 0.75rem 1rem;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  border-radius: 10px;
+  background: rgba(30, 41, 59, 0.6);
+  color: #f1f5f9;
+  font-size: 0.9rem;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.addInput::placeholder {
+  color: #64748b;
+}
+
+.addInput:focus {
+  border-color: #60a5fa;
+  box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.15);
+}
+
+.addButton {
+  padding: 0.75rem 1.25rem;
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  border: none;
+  border-radius: 10px;
+  color: white;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.addButton:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+}
+
+.addButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Items list - tag style */
+.itemList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.itemTag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: rgba(96, 165, 250, 0.15);
+  border: 1px solid rgba(96, 165, 250, 0.3);
+  border-radius: 20px;
+  transition: all 0.2s;
+}
+
+.itemTag:hover {
+  background: rgba(96, 165, 250, 0.25);
+}
+
+.itemName {
+  font-size: 0.875rem;
+  color: #e2e8f0;
+  font-weight: 500;
+}
+
+.removeButton {
+  width: 20px;
+  height: 20px;
+  border: none;
+  background: rgba(239, 68, 68, 0.3);
+  color: #fca5a5;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 0.7rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  padding: 0;
+  line-height: 1;
+}
+
+.removeButton:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.5);
+  color: #fff;
+}
+
+.removeButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.hint {
+  font-size: 0.8rem;
+  color: #fbbf24;
+  text-align: center;
+  margin: 0;
+  padding: 0.5rem;
+  background: rgba(251, 191, 36, 0.1);
+  border-radius: 8px;
+}

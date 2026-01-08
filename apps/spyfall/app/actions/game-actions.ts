@@ -18,6 +18,7 @@
 
 import { getAdminDatabase } from '@/lib/firebase-admin';
 import { SPY_LOCATIONS } from '@/constants/locations';
+import { getCategoryItems } from '@/constants/categories';
 import {
   updateAdminRoomIndex,
   updateAdminRoomStatus,
@@ -30,6 +31,9 @@ import type {
   SpyfallPrivatePlayerData,
   SpyfallPlayer,
   SpyfallRoomMeta,
+  SpyfallGameSettings,
+  SpyfallCategory,
+  SpyfallLocation,
 } from '@vbz/shared-types';
 
 const ROOMS_BASE = 'games/spyfall/rooms';
@@ -37,8 +41,12 @@ const DEFAULT_GAME_DURATION = 480; // 8 minutes
 
 /**
  * Shuffle array using Fisher-Yates algorithm
+ * Returns empty array if input is null, undefined, or not an array
  */
-function shuffleArray<T>(array: T[]): T[] {
+function shuffleArray<T>(array: T[] | null | undefined): T[] {
+  if (!array || !Array.isArray(array) || array.length === 0) {
+    return [];
+  }
   const shuffled = [...array];
   for (let i = shuffled.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -66,11 +74,16 @@ function shuffleArray<T>(array: T[]): T[] {
 export async function startGame(
   roomId: string,
   playerId: string,
-  gameDurationSeconds: number = DEFAULT_GAME_DURATION
+  settings?: Partial<SpyfallGameSettings>
 ): Promise<GameActionResult> {
   try {
     const db = getAdminDatabase();
     const roomRef = db.ref(`${ROOMS_BASE}/${roomId}`);
+
+    // Extract settings with defaults
+    const category: SpyfallCategory = settings?.category || 'locations';
+    const customLocations: SpyfallLocation[] = settings?.customLocations || [];
+    const gameDurationSeconds = settings?.gameDurationSeconds || DEFAULT_GAME_DURATION;
 
     // Pre-check to provide better error messages
     const snapshot = await roomRef.once('value');
@@ -137,12 +150,36 @@ export async function startGame(
     const shuffledPlayerIds = shuffleArray(playerIds);
     const spyPlayerId = shuffledPlayerIds[0];
 
-    // Randomly select location
-    const shuffledLocations = shuffleArray(SPY_LOCATIONS);
+    // Get items based on category
+    let gameItems: SpyfallLocation[];
+    if (category === 'custom') {
+      // Use custom locations provided by host
+      if (customLocations.length < 5) {
+        // Revert status back to waiting
+        await roomRef.child('meta/status').set('waiting');
+        return { success: false, error: 'Custom mode requires at least 5 items' };
+      }
+      // Ensure custom items have proper structure (with roles array)
+      gameItems = customLocations.map(loc => ({
+        name: loc.name,
+        roles: loc.roles || [],
+      }));
+    } else {
+      // Use built-in category items
+      gameItems = getCategoryItems(category);
+      if (gameItems.length === 0) {
+        // Fallback to classic locations
+        gameItems = SPY_LOCATIONS;
+      }
+    }
+
+    // Randomly select location/item from the category
+    const shuffledLocations = shuffleArray(gameItems);
     const selectedLocation = shuffledLocations[0];
 
-    // Shuffle roles for the location
-    const shuffledRoles = shuffleArray(selectedLocation.roles);
+    // Shuffle roles for the location (may be empty for categories like animals)
+    const hasRoles = Array.isArray(selectedLocation.roles) && selectedLocation.roles.length > 0;
+    const shuffledRoles = hasRoles ? shuffleArray(selectedLocation.roles) : [];
 
     // Assign roles to non-spy players
     const privatePlayerData: Record<string, SpyfallPrivatePlayerData> = {};
@@ -156,8 +193,13 @@ export async function startGame(
           isSpy: true,
         };
       } else {
+        // For categories without roles (e.g., animals), role will be null
+        // Use explicit null to ensure we never send undefined to Firebase
+        const assignedRole = hasRoles && shuffledRoles.length > 0
+          ? shuffledRoles[roleIndex % shuffledRoles.length]
+          : null;
         privatePlayerData[pid] = {
-          role: shuffledRoles[roleIndex % shuffledRoles.length],
+          role: assignedRole ?? null,  // Double-ensure no undefined
           location: selectedLocation.name,
           isSpy: false,
         };
@@ -169,6 +211,16 @@ export async function startGame(
     const now = Date.now();
     const endsAt = now + gameDurationSeconds * 1000;
 
+    console.log('[startGame] Creating game state:', {
+      category,
+      selectedLocation: selectedLocation.name,
+      hasRoles: selectedLocation.roles?.length > 0,
+      now,
+      endsAt,
+      gameDurationSeconds,
+      playerCount: playerIds.length,
+    });
+
     // Game state
     const gameState: SpyfallGameState = {
       currentLocation: selectedLocation.name,
@@ -177,11 +229,23 @@ export async function startGame(
       endsAt,
     };
 
+    // Game settings to persist (so UI shows correct category during game)
+    // Note: Firebase doesn't accept undefined, so we only include customLocations for custom category
+    const gameSettingsToSave: SpyfallGameSettings = {
+      category,
+      gameDurationSeconds,
+      // Only include customLocations when using custom category (Firebase rejects undefined)
+      ...(category === 'custom' ? { customLocations: gameItems } : {}),
+    };
+
     // Write game data (status already set via transaction)
     await roomRef.update({
       state: gameState,
       privatePlayerData,
+      gameSettings: gameSettingsToSave,
     });
+
+    console.log('[startGame] Game state written successfully');
 
     // Update admin index (non-blocking)
     updateAdminRoomStatus(roomId, 'playing').catch(console.error);
@@ -261,6 +325,82 @@ export async function endGame(
 }
 
 /**
+ * Update game settings (category, custom locations, duration)
+ * 
+ * - Only allowed in waiting state
+ * - Only host can update settings
+ * - Custom category requires premium unlock
+ */
+export async function updateGameSettings(
+  roomId: string,
+  playerId: string,
+  settings: Partial<SpyfallGameSettings>
+): Promise<GameActionResult> {
+  try {
+    const db = getAdminDatabase();
+    const roomRef = db.ref(`${ROOMS_BASE}/${roomId}`);
+
+    // Pre-check to provide better error messages
+    const snapshot = await roomRef.once('value');
+    const currentData = snapshot.val();
+
+    if (!currentData) {
+      return { success: false, error: 'Room not found' };
+    }
+
+    if (!currentData.meta) {
+      return { success: false, error: 'Room data is corrupted (missing meta)' };
+    }
+
+    // Guard: Must be in waiting state
+    if (currentData.meta.status !== 'waiting') {
+      return { success: false, error: 'Can only change settings while waiting' };
+    }
+
+    // Guard: Requester must be host
+    const players = currentData.players || {};
+    const requestingPlayer = players[playerId];
+    if (!requestingPlayer) {
+      return { success: false, error: 'You are not in this room' };
+    }
+    if (!requestingPlayer.isHost) {
+      return { success: false, error: 'Only the host can change game settings' };
+    }
+
+    // TEMP: Bypassed premium check for testing - revert this later
+    // Validate custom category has premium unlock
+    // if (settings.category === 'custom') {
+    //   const unlockedFeatures = currentData.unlockedPremiumFeatures || {};
+    //   if (!unlockedFeatures.custom_category) {
+    //     return { success: false, error: 'Custom category requires premium unlock' };
+    //   }
+    // }
+
+    // Merge with existing settings
+    const existingSettings = currentData.gameSettings || {
+      category: 'locations',
+      gameDurationSeconds: DEFAULT_GAME_DURATION,
+    };
+
+    const newSettings: SpyfallGameSettings = {
+      ...existingSettings,
+      ...settings,
+    };
+
+    // Update settings
+    await roomRef.child('gameSettings').set(newSettings);
+
+    return { success: true };
+  } catch (error) {
+    console.error('updateGameSettings error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to update game settings',
+    };
+  }
+}
+
+/**
  * Reset game back to waiting state (with atomic guard)
  * 
  * - Only allowed from finished state
@@ -304,10 +444,12 @@ export async function resetGame(
     }
 
     // All validations passed - reset to waiting state and clear game data
+    // Clear gameSettings so host can choose a new category for the next game
     await roomRef.update({
       'meta/status': 'waiting',
       state: null,
       privatePlayerData: null,
+      gameSettings: null,
     });
 
     // Update admin index (non-blocking)
