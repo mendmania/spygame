@@ -6,10 +6,69 @@ import './globals.css';
 const inter = Inter({ subsets: ['latin'] });
 
 const GA_MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID || 'G-NZBHYKXKY2';
+const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://virtualboardzone.com';
 
 export const metadata: Metadata = {
-  title: 'Virtual Board Zone - Online Party Games',
-  description: 'Play Spyfall, Codenames, and more with friends online. No downloads required.',
+  metadataBase: new URL(baseUrl),
+  title: {
+    default: 'Virtual Board Zone - Free Online Party Games | Play with Friends',
+    template: '%s | Virtual Board Zone',
+  },
+  description: 'Play free online party games with friends! Spyfall, One Night Werewolf, and more social deduction games. No downloads, no sign-up required. Play instantly in your browser.',
+  keywords: [
+    'online party games',
+    'free online games',
+    'play with friends',
+    'social deduction games',
+    'browser games',
+    'multiplayer games',
+    'spyfall online',
+    'werewolf online',
+    'virtual board games',
+    'no download games',
+    'party games free',
+    'online game night',
+  ],
+  authors: [{ name: 'Virtual Board Zone' }],
+  creator: 'Virtual Board Zone',
+  publisher: 'Virtual Board Zone',
+  openGraph: {
+    type: 'website',
+    locale: 'en_US',
+    url: baseUrl,
+    siteName: 'Virtual Board Zone',
+    title: 'Virtual Board Zone - Free Online Party Games',
+    description: 'Play free online party games with friends! Spyfall, One Night Werewolf, and more. No downloads required!',
+    images: [
+      {
+        url: '/og-image.png',
+        width: 1200,
+        height: 630,
+        alt: 'Virtual Board Zone - Online Party Games',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Virtual Board Zone - Free Online Party Games',
+    description: 'Play free party games online with friends! Spyfall, Werewolf & more. No downloads!',
+    images: ['/og-image.png'],
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-video-preview': -1,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+    },
+  },
+  alternates: {
+    canonical: baseUrl,
+  },
+  category: 'games',
 };
 
 export default function RootLayout({

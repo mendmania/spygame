@@ -7,11 +7,70 @@ import './globals.css';
 
 const inter = Inter({ subsets: ['latin'] });
 
-const GA_MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID || 'G-97ZE2FX3BX';
+const GA_MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID || 'G-NZBHYKXKY2';
+const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://spyfall.virtualboardzone.com';
 
 export const metadata: Metadata = {
-  title: 'Spyfall - Virtual Board Zone',
-  description: 'Find the spy before time runs out! A social deduction game for 4-10 players.',
+  metadataBase: new URL(baseUrl),
+  title: {
+    default: 'Spyfall Online - Free Multiplayer Social Deduction Game | Virtual Board Zone',
+    template: '%s | Spyfall - Virtual Board Zone',
+  },
+  description: 'Play Spyfall online for free! Find the spy before time runs out in this thrilling social deduction party game for 4-10 players. No downloads required - play instantly in your browser.',
+  keywords: [
+    'spyfall',
+    'spyfall online',
+    'play spyfall',
+    'free spyfall',
+    'social deduction game',
+    'party game online',
+    'multiplayer game',
+    'browser game',
+    'find the spy',
+    'secret location game',
+    'virtual board game',
+    'online party game',
+  ],
+  authors: [{ name: 'Virtual Board Zone' }],
+  creator: 'Virtual Board Zone',
+  publisher: 'Virtual Board Zone',
+  openGraph: {
+    type: 'website',
+    locale: 'en_US',
+    url: baseUrl,
+    siteName: 'Virtual Board Zone',
+    title: 'Spyfall Online - Free Multiplayer Social Deduction Game',
+    description: 'Play Spyfall online for free! Find the spy before time runs out. A thrilling party game for 4-10 players. No downloads - play instantly!',
+    images: [
+      {
+        url: '/og-image.png',
+        width: 1200,
+        height: 630,
+        alt: 'Spyfall - Social Deduction Party Game',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Spyfall Online - Free Multiplayer Social Deduction Game',
+    description: 'Play Spyfall online for free! Find the spy before time runs out. 4-10 players. No downloads required!',
+    images: ['/og-image.png'],
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-video-preview': -1,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+    },
+  },
+  alternates: {
+    canonical: baseUrl,
+  },
+  category: 'games',
 };
 
 export default function RootLayout({

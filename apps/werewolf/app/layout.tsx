@@ -7,11 +7,71 @@ import './globals.css';
 
 const inter = Inter({ subsets: ['latin'] });
 
-const GA_MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID || 'G-97ZE2FX3BX';
+const GA_MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID || 'G-NZBHYKXKY2';
+const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://werewolf.virtualboardzone.com';
 
 export const metadata: Metadata = {
-  title: 'One Night Werewolf - Virtual Board Zone',
-  description: 'One Night Ultimate Werewolf - A fast-paced social deduction game for 3-10 players.',
+  metadataBase: new URL(baseUrl),
+  title: {
+    default: 'One Night Werewolf Online - Free Multiplayer Party Game | Virtual Board Zone',
+    template: '%s | One Night Werewolf - Virtual Board Zone',
+  },
+  description: 'Play One Night Ultimate Werewolf online for free! A fast-paced social deduction game for 3-10 players. Find the werewolves before they find you. No downloads required!',
+  keywords: [
+    'one night werewolf',
+    'one night ultimate werewolf',
+    'werewolf online',
+    'play werewolf',
+    'free werewolf game',
+    'social deduction game',
+    'party game online',
+    'multiplayer game',
+    'browser game',
+    'mafia game',
+    'virtual board game',
+    'online party game',
+    'werewolf roles',
+  ],
+  authors: [{ name: 'Virtual Board Zone' }],
+  creator: 'Virtual Board Zone',
+  publisher: 'Virtual Board Zone',
+  openGraph: {
+    type: 'website',
+    locale: 'en_US',
+    url: baseUrl,
+    siteName: 'Virtual Board Zone',
+    title: 'One Night Werewolf Online - Free Multiplayer Party Game',
+    description: 'Play One Night Ultimate Werewolf online for free! Fast-paced social deduction for 3-10 players. No downloads - play instantly!',
+    images: [
+      {
+        url: '/og-image.png',
+        width: 1200,
+        height: 630,
+        alt: 'One Night Werewolf - Social Deduction Party Game',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'One Night Werewolf Online - Free Multiplayer Party Game',
+    description: 'Play One Night Ultimate Werewolf online for free! 3-10 players. No downloads required!',
+    images: ['/og-image.png'],
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-video-preview': -1,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+    },
+  },
+  alternates: {
+    canonical: baseUrl,
+  },
+  category: 'games',
 };
 
 export default function RootLayout({
