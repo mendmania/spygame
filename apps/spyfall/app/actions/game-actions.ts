@@ -153,6 +153,14 @@ export async function startGame(
     // Get items based on category
     let gameItems: SpyfallLocation[];
     if (category === 'custom') {
+      // Validate premium unlock for custom category
+      const unlockedFeatures = preCheckData.unlockedPremiumFeatures || {};
+      if (!unlockedFeatures.custom_category) {
+        // Revert status back to waiting
+        await roomRef.child('meta/status').set('waiting');
+        return { success: false, error: 'Custom category requires premium unlock. Please purchase to play custom games.' };
+      }
+      
       // Use custom locations provided by host
       if (customLocations.length < 5) {
         // Revert status back to waiting
@@ -367,14 +375,13 @@ export async function updateGameSettings(
       return { success: false, error: 'Only the host can change game settings' };
     }
 
-    // TEMP: Bypassed premium check for testing - revert this later
     // Validate custom category has premium unlock
-    // if (settings.category === 'custom') {
-    //   const unlockedFeatures = currentData.unlockedPremiumFeatures || {};
-    //   if (!unlockedFeatures.custom_category) {
-    //     return { success: false, error: 'Custom category requires premium unlock' };
-    //   }
-    // }
+    if (settings.category === 'custom') {
+      const unlockedFeatures = currentData.unlockedPremiumFeatures || {};
+      if (!unlockedFeatures.custom_category) {
+        return { success: false, error: 'Custom category requires premium unlock' };
+      }
+    }
 
     // Merge with existing settings
     const existingSettings = currentData.gameSettings || {
@@ -445,11 +452,13 @@ export async function resetGame(
 
     // All validations passed - reset to waiting state and clear game data
     // Clear gameSettings so host can choose a new category for the next game
+    // Clear unlockedPremiumFeatures so custom category requires a new purchase for each game
     await roomRef.update({
       'meta/status': 'waiting',
       state: null,
       privatePlayerData: null,
       gameSettings: null,
+      unlockedPremiumFeatures: null,
     });
 
     // Update admin index (non-blocking)

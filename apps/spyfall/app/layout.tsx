@@ -78,9 +78,71 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const hubUrl = process.env.NEXT_PUBLIC_HUB_URL || 'https://virtualboardzone.com';
+  
+  // VideoGame Schema for Spyfall
+  const gameSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'VideoGame',
+    name: 'Spyfall Online',
+    description: 'Play Spyfall online for free - a thrilling social deduction party game where players try to find the spy among them.',
+    url: baseUrl,
+    genre: ['Social Deduction', 'Party Game', 'Deduction'],
+    numberOfPlayers: {
+      '@type': 'QuantitativeValue',
+      minValue: 4,
+      maxValue: 10,
+    },
+    playMode: ['MultiPlayer'],
+    gamePlatform: ['Web Browser'],
+    applicationCategory: 'Game',
+    operatingSystem: 'Any',
+    offers: {
+      '@type': 'Offer',
+      price: 0,
+      priceCurrency: 'USD',
+      availability: 'https://schema.org/InStock',
+    },
+    author: {
+      '@type': 'Organization',
+      name: 'Virtual Board Zone',
+      url: hubUrl,
+    },
+  };
+
+  // BreadcrumbList Schema
+  const breadcrumbSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      {
+        '@type': 'ListItem',
+        position: 1,
+        name: 'Virtual Board Zone',
+        item: hubUrl,
+      },
+      {
+        '@type': 'ListItem',
+        position: 2,
+        name: 'Spyfall',
+        item: baseUrl,
+      },
+    ],
+  };
+
   return (
     <html lang="en" className="dark">
       <head>
+        <Script
+          id="game-schema"
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(gameSchema) }}
+        />
+        <Script
+          id="breadcrumb-schema"
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
+        />
         <Script
           src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}
           strategy="afterInteractive"
@@ -102,12 +164,24 @@ export default function RootLayout({
                 <Link href="/" className="text-xl font-bold hover:text-blue-400 transition-colors">
                   SPYFALL
                 </Link>
-                <nav className="flex gap-6">
+                <nav className="flex gap-4 md:gap-6 items-center">
+                  <Link
+                    href="/how-to-play"
+                    className="text-gray-400 hover:text-white transition-colors text-sm hidden sm:block"
+                  >
+                    How to Play
+                  </Link>
+                  <Link
+                    href="/locations"
+                    className="text-gray-400 hover:text-white transition-colors text-sm hidden sm:block"
+                  >
+                    Locations
+                  </Link>
                   <a
                     href={process.env.NEXT_PUBLIC_HUB_URL || '/'}
                     className="text-gray-400 hover:text-white transition-colors text-sm"
                   >
-                    ← Back to Hub
+                    ← Hub
                   </a>
                 </nav>
               </div>

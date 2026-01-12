@@ -79,9 +79,71 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const hubUrl = process.env.NEXT_PUBLIC_HUB_URL || 'https://virtualboardzone.com';
+  
+  // VideoGame Schema for Werewolf
+  const gameSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'VideoGame',
+    name: 'One Night Werewolf Online',
+    description: 'Play One Night Ultimate Werewolf online for free - a fast-paced social deduction game where villagers try to find the werewolves.',
+    url: baseUrl,
+    genre: ['Social Deduction', 'Party Game', 'Hidden Role'],
+    numberOfPlayers: {
+      '@type': 'QuantitativeValue',
+      minValue: 3,
+      maxValue: 10,
+    },
+    playMode: ['MultiPlayer'],
+    gamePlatform: ['Web Browser'],
+    applicationCategory: 'Game',
+    operatingSystem: 'Any',
+    offers: {
+      '@type': 'Offer',
+      price: 0,
+      priceCurrency: 'USD',
+      availability: 'https://schema.org/InStock',
+    },
+    author: {
+      '@type': 'Organization',
+      name: 'Virtual Board Zone',
+      url: hubUrl,
+    },
+  };
+
+  // BreadcrumbList Schema
+  const breadcrumbSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      {
+        '@type': 'ListItem',
+        position: 1,
+        name: 'Virtual Board Zone',
+        item: hubUrl,
+      },
+      {
+        '@type': 'ListItem',
+        position: 2,
+        name: 'Werewolf',
+        item: baseUrl,
+      },
+    ],
+  };
+
   return (
     <html lang="en" className="dark">
       <head>
+        <Script
+          id="game-schema"
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(gameSchema) }}
+        />
+        <Script
+          id="breadcrumb-schema"
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
+        />
         <Script
           src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}
           strategy="afterInteractive"
@@ -103,12 +165,24 @@ export default function RootLayout({
                 <Link href="/" className="text-xl font-bold hover:text-red-400 transition-colors">
                   🐺 WEREWOLF
                 </Link>
-                <nav className="flex gap-6">
+                <nav className="flex gap-4 md:gap-6 items-center">
+                  <Link
+                    href="/how-to-play"
+                    className="text-gray-400 hover:text-white transition-colors text-sm hidden sm:block"
+                  >
+                    How to Play
+                  </Link>
+                  <Link
+                    href="/roles"
+                    className="text-gray-400 hover:text-white transition-colors text-sm hidden sm:block"
+                  >
+                    Roles
+                  </Link>
                   <a
                     href={process.env.NEXT_PUBLIC_HUB_URL || '/'}
                     className="text-gray-400 hover:text-white transition-colors text-sm"
                   >
-                    ← Back to Hub
+                    ← Hub
                   </a>
                 </nav>
               </div>

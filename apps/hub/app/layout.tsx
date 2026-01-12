@@ -76,9 +76,44 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  // Organization Schema
+  const organizationSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'Organization',
+    name: 'Virtual Board Zone',
+    url: baseUrl,
+    logo: `${baseUrl}/logo.png`,
+    description: 'Play free online party games with friends. No downloads required.',
+    sameAs: [],
+  };
+
+  // WebSite Schema
+  const websiteSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'WebSite',
+    name: 'Virtual Board Zone',
+    url: baseUrl,
+    description: 'Free online party games - Spyfall, Werewolf, and more social deduction games.',
+    potentialAction: {
+      '@type': 'SearchAction',
+      target: `${baseUrl}/search?q={search_term_string}`,
+      'query-input': 'required name=search_term_string',
+    },
+  };
+
   return (
     <html lang="en" className="dark">
       <head>
+        <Script
+          id="organization-schema"
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }}
+        />
+        <Script
+          id="website-schema"
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteSchema) }}
+        />
         <Script
           src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}
           strategy="afterInteractive"
@@ -110,7 +145,7 @@ export default function RootLayout({
           <main className="flex-1">{children}</main>
           <footer className="border-t border-gray-800 px-6 py-8">
             <div className="max-w-6xl mx-auto text-center text-gray-500 text-sm space-y-3">
-              <p>© 2024 Virtual Board Zone. Play games with friends online.</p>
+              <p>© {new Date().getFullYear()} Virtual Board Zone. Play games with friends online.</p>
               <a
                 href="https://buymeacoffee.com/mendmania"
                 target="_blank"
