@@ -145,7 +145,7 @@ export default function RootLayout({
           <main className="flex-1">{children}</main>
           <footer className="border-t border-gray-800 px-6 py-8">
             <div className="max-w-6xl mx-auto text-center text-gray-500 text-sm space-y-3">
-              <p>© 2024 Virtual Board Zone. Play games with friends online.</p>
+              <p>© {new Date().getFullYear()} Virtual Board Zone. Play games with friends online.</p>
               <a
                 href="https://buymeacoffee.com/mendmania"
                 target="_blank"
