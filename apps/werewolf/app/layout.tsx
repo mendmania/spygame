@@ -72,6 +72,17 @@ export const metadata: Metadata = {
     canonical: baseUrl,
   },
   category: 'games',
+  manifest: '/manifest.json',
+  icons: {
+    icon: [
+      { url: '/favicon.ico', sizes: '32x32' },
+      { url: '/icon-192.png', sizes: '192x192', type: 'image/png' },
+      { url: '/icon-512.png', sizes: '512x512', type: 'image/png' },
+    ],
+    apple: [
+      { url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
+    ],
+  },
 };
 
 export default function RootLayout({
@@ -81,34 +92,60 @@ export default function RootLayout({
 }) {
   const hubUrl = process.env.NEXT_PUBLIC_HUB_URL || 'https://virtualboardzone.com';
   
+  // Organization Schema
+  const organizationSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'Organization',
+    name: 'Virtual Board Zone',
+    url: hubUrl,
+    logo: `${hubUrl}/logo.png`,
+    description: 'Free online party games including Spyfall and Werewolf',
+    sameAs: [
+      // Add your social media links here when available
+    ],
+  };
+
   // VideoGame Schema for Werewolf
   const gameSchema = {
     '@context': 'https://schema.org',
-    '@type': 'VideoGame',
+    '@type': ['VideoGame', 'WebApplication'],
     name: 'One Night Werewolf Online',
+    alternateName: ['One Night Ultimate Werewolf', 'Werewolf Game', 'ONUW'],
     description: 'Play One Night Ultimate Werewolf online for free - a fast-paced social deduction game where villagers try to find the werewolves.',
     url: baseUrl,
-    genre: ['Social Deduction', 'Party Game', 'Hidden Role'],
+    image: `${baseUrl}/og-image.png`,
+    genre: ['Social Deduction', 'Party Game', 'Hidden Role', 'Strategy', 'Bluffing'],
+    keywords: 'werewolf, one night werewolf, one night ultimate werewolf, social deduction, party game, mafia game, multiplayer, free game',
     numberOfPlayers: {
       '@type': 'QuantitativeValue',
       minValue: 3,
       maxValue: 10,
     },
-    playMode: ['MultiPlayer'],
-    gamePlatform: ['Web Browser'],
+    playMode: ['MultiPlayer', 'CoOp'],
+    gamePlatform: ['Web Browser', 'Mobile Web'],
     applicationCategory: 'Game',
     operatingSystem: 'Any',
+    browserRequirements: 'Requires JavaScript. Requires HTML5.',
     offers: {
       '@type': 'Offer',
       price: 0,
       priceCurrency: 'USD',
       availability: 'https://schema.org/InStock',
+      availabilityStarts: '2024-01-01',
     },
     author: {
       '@type': 'Organization',
       name: 'Virtual Board Zone',
       url: hubUrl,
     },
+    publisher: {
+      '@type': 'Organization',
+      name: 'Virtual Board Zone',
+      url: hubUrl,
+    },
+    inLanguage: 'en',
+    isAccessibleForFree: true,
+    gameTip: 'Pay attention during the night phase and remember role wake order to deduce information during the day discussion.',
   };
 
   // BreadcrumbList Schema
@@ -131,9 +168,30 @@ export default function RootLayout({
     ],
   };
 
+  // WebSite Schema for enhanced search
+  const websiteSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'WebSite',
+    name: 'One Night Werewolf Online',
+    alternateName: 'Virtual Board Zone Werewolf',
+    url: baseUrl,
+    description: 'Play One Night Ultimate Werewolf online for free - a fast-paced social deduction game',
+    publisher: {
+      '@type': 'Organization',
+      name: 'Virtual Board Zone',
+      url: hubUrl,
+    },
+  };
+
   return (
     <html lang="en" className="dark">
       <head>
+        <meta name="theme-color" content="#8b5cf6" />
+        <Script
+          id="organization-schema"
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }}
+        />
         <Script
           id="game-schema"
           type="application/ld+json"
@@ -143,6 +201,11 @@ export default function RootLayout({
           id="breadcrumb-schema"
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
+        />
+        <Script
+          id="website-schema"
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteSchema) }}
         />
         <Script
           src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}

@@ -69,6 +69,17 @@ export const metadata: Metadata = {
     canonical: baseUrl,
   },
   category: 'games',
+  manifest: '/manifest.json',
+  icons: {
+    icon: [
+      { url: '/favicon.ico', sizes: '32x32' },
+      { url: '/icon-192.png', sizes: '192x192', type: 'image/png' },
+      { url: '/icon-512.png', sizes: '512x512', type: 'image/png' },
+    ],
+    apple: [
+      { url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
+    ],
+  },
 };
 
 export default function RootLayout({
@@ -84,7 +95,42 @@ export default function RootLayout({
     url: baseUrl,
     logo: `${baseUrl}/logo.png`,
     description: 'Play free online party games with friends. No downloads required.',
-    sameAs: [],
+    sameAs: [
+      // Add your social media links here when available
+    ],
+  };
+
+  // ItemList Schema for Game Collection
+  const gameListSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'ItemList',
+    name: 'Virtual Board Zone Games',
+    description: 'Collection of free online party games',
+    numberOfItems: 2,
+    itemListElement: [
+      {
+        '@type': 'ListItem',
+        position: 1,
+        item: {
+          '@type': 'VideoGame',
+          name: 'Spyfall Online',
+          url: `${baseUrl.replace('virtualboardzone.com', 'spyfall.virtualboardzone.com')}`,
+          description: 'Find the spy in this social deduction party game',
+          image: `${baseUrl}/spyfall-thumbnail.png`,
+        },
+      },
+      {
+        '@type': 'ListItem',
+        position: 2,
+        item: {
+          '@type': 'VideoGame',
+          name: 'One Night Werewolf',
+          url: `${baseUrl.replace('virtualboardzone.com', 'werewolf.virtualboardzone.com')}`,
+          description: 'Find the werewolves in one night',
+          image: `${baseUrl}/werewolf-thumbnail.png`,
+        },
+      },
+    ],
   };
 
   // WebSite Schema
@@ -104,10 +150,16 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <head>
+        <meta name="theme-color" content="#3b82f6" />
         <Script
           id="organization-schema"
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }}
+        />
+        <Script
+          id="gamelist-schema"
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(gameListSchema) }}
         />
         <Script
           id="website-schema"
